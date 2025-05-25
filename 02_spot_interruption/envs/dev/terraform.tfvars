@@ -1,0 +1,2 @@
+project = "SpotinstanceInterruptionTest"
+env     = "dev"

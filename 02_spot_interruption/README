@@ -1,0 +1,45 @@
+# スポットインスタンス中断実行方法(envs/devで実行)
+1. インフラ構築
+```
+$ terraform apply -auto-approve
+```
+2.  実験テンプレートの構築
+```
+$ aws fis create-experiment-template --cli-input-json file://template.json
+```
+3. 実験の実行
+```
+$ aws fis start-experiment --experiment-template-id <experiment-template-id>
+```
+
+
+# 実験後削除
+1, terraformのリソース確認
+```
+$ terraform state list
+```
+2. タグ、SNSの削除（権限がないため）
+```
+$ terraform state rm module.spot_instance.aws_ec2_tag.tmp_spot_tag
+$ terraform state rm module.spot_interruption_notice.aws_sns_topic_subscription.topic_subscription
+$ terraform state rm module.spot_interruption_notice.aws_sns_topic.topic
+```
+3. インフラ削除
+```
+$ terraform destroy -auto-approve
+```
+
+
+# 実験テンプレート削除
+1.確認
+```
+$ aws fis list-experiments
+```
+2. テンプレートIDを出す
+```
+$ aws fis list-experiment-templates | jq -r '.experimentTemplates[].id'
+```
+3. テンプレートIDを指定し、削除
+```
+$ aws fis delete-experiment-template --id <ID>
+```

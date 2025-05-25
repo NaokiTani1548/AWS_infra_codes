@@ -1,0 +1,9 @@
+# .gitignore
+.terraform/
+*.tfstate
+*.tfstate.backup
+crash.log
+*.log
+*.tfplan
+*.zip
+*.exe

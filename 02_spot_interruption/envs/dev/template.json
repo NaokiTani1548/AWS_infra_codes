@@ -1,0 +1,38 @@
+{
+    "description": "test template",
+    "targets": {
+        "SpotInstances-Target-1": {
+            "resourceType": "aws:ec2:spot-instance",
+            "resourceTags": {
+                "Name": "SpotTest"
+            },
+            "selectionMode": "ALL"
+        }
+    },
+    "actions": {
+        "terminate_spot_instance": {
+            "actionId": "aws:ec2:send-spot-instance-interruptions",
+            "parameters": {
+                "durationBeforeInterruption": "PT2M"
+            },
+            "targets": {
+                "SpotInstances": "SpotInstances-Target-1"
+            }
+        }
+    },
+    "stopConditions": [
+        {
+            "source": "none"
+        }
+    ],
+    "roleArn": "arn:aws:iam::058898200941:role/SpotinstanceInterruptionTest-dev-fis-role",
+    "logConfiguration": {
+        "cloudWatchLogsConfiguration": {
+            "logGroupArn": "arn:aws:logs:ap-northeast-1:058898200941:log-group:/fis/logs/:*"
+        },
+        "logSchemaVersion": 2
+    },
+    "tags": {
+        "Name": "terminate_spot_instance"
+    }
+}

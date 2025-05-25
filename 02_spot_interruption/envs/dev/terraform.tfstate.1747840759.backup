@@ -1,0 +1,54 @@
+{
+  "version": 4,
+  "terraform_version": "1.11.4",
+  "serial": 180,
+  "lineage": "3d1b986d-e916-e812-585f-78ba2f70c128",
+  "outputs": {},
+  "resources": [
+    {
+      "module": "module.spot_interruption_notice",
+      "mode": "managed",
+      "type": "aws_sns_topic",
+      "name": "topic",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "application_failure_feedback_role_arn": "",
+            "application_success_feedback_role_arn": "",
+            "application_success_feedback_sample_rate": 0,
+            "arn": "arn:aws:sns:ap-northeast-1:058898200941:SpotinstanceInterruptionTest-dev-spot-interruption-topic",
+            "content_based_deduplication": false,
+            "delivery_policy": "",
+            "display_name": "",
+            "fifo_topic": false,
+            "firehose_failure_feedback_role_arn": "",
+            "firehose_success_feedback_role_arn": "",
+            "firehose_success_feedback_sample_rate": 0,
+            "http_failure_feedback_role_arn": "",
+            "http_success_feedback_role_arn": "",
+            "http_success_feedback_sample_rate": 0,
+            "id": "arn:aws:sns:ap-northeast-1:058898200941:SpotinstanceInterruptionTest-dev-spot-interruption-topic",
+            "kms_master_key_id": "",
+            "lambda_failure_feedback_role_arn": "",
+            "lambda_success_feedback_role_arn": "",
+            "lambda_success_feedback_sample_rate": 0,
+            "name": "SpotinstanceInterruptionTest-dev-spot-interruption-topic",
+            "name_prefix": "",
+            "owner": "058898200941",
+            "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"events.amazonaws.com\"},\"Action\":\"SNS:Publish\",\"Resource\":\"arn:aws:sns:ap-northeast-1:058898200941:SpotinstanceInterruptionTest-dev-spot-interruption-topic\"}]}",
+            "sqs_failure_feedback_role_arn": "",
+            "sqs_success_feedback_role_arn": "",
+            "sqs_success_feedback_sample_rate": 0,
+            "tags": null,
+            "tags_all": null
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA=="
+        }
+      ]
+    }
+  ],
+  "check_results": null
+}
