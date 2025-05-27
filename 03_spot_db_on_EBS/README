@@ -1,0 +1,64 @@
+# spot db on EBSの起動 
+
+## 起動(envs/devで実行)
+$ terraform apply -auto-approve
+
+## ssh接続
+$ ssh -i ./../../key/spot-db-test.pem ec2-user@<public_ip>
+## mysqlの起動確認
+$ systemctl status mysqld.service
+
+## MySQL接続
+### パスワード確認（初期）
+$ sudo less /var/log/mysqld.log
+### 接続
+$ sudo mysql -u root -p
+### パスワード変更（初期）
+ALTER USER 'root'@'localhost' IDENTIFIED BY 'Hitandrun48.';
+
+# EBSの付け替え
+## EBSアンマウント
+### 停止
+$ sudo systemctl stop mysqld
+### マウント状態の確認
+$ df -h | grep /data
+### マウント解除
+$ sudo umount /data
+### (fstabのバックアップを作成)
+$ sudo cp /etc/fstab /etc/fstab.backup
+### (マウント設定をコメントアウト)
+$ sudo sed -i 's|/dev/xvdf /data xfs defaults,nofail 0 2|#/dev/xvdf /data xfs defaults,nofail 0 2|' /etc/fstab
+## EBSデタッチ
+$ aws ec2 detach-volume --volume-id $(terraform output -raw spot_db_volume_id)
+
+## EBSアタッチ
+$ MSYS_NO_PATHCONV=1 aws ec2 attach-volume --volume-id $(terraform output -raw spot_db_volume_id) --instance-id $(terraform output -raw spot_db_destination_instance_id) --device "/dev/xvdf"
+## EBSマウント
+### マウント
+$ sudo mount /dev/xvdf /data
+### 永続的なマウントの設定(PermissionDenied)
+$ sudo echo "/dev/xvdf /data xfs defaults,nofail 0 2" >> /etc/fstab
+###  シンボリックリンクの作成
+$ sudo ln -s /data/mysql /var/lib/mysql
+### 権限の設定
+$ sudo chown -R mysql:mysql /data/mysql
+$ sudo chmod 750 /data/mysql
+### MySQLの起動
+$ sudo systemctl start mysqld
+
+## エラー解決
+### 既存のシンボリックリンクを削除
+$ sudo rm -rf /var/lib/mysql
+### 新しいシンボリックリンクを作成
+$ sudo ln -s /data/mysql /var/lib/mysql
+###　権限の設定
+$ sudo chmod 750 /data/mysql
+### 再起動
+$ sudo systemctl restart mysqld
+
+## 削除/変更(EBSデタッチが必須) <追記：時間置けば必要ないかも？>
+$ ssh -i <.\secret_key_path.pem> ec2-user@<public_ip>
+$ sudo systemctl stop mysqld
+$ sudo umount /data
+$ sudo reboot
+$ terraform destroy -auto-approve / terraform apply -auto-approve
