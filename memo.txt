@@ -1,0 +1,5 @@
+## kyepair作成
+$ ssh-keygen -t rsa -b 2048 -f <key_name>
+
+## SSH接続
+$ ssh -i <.\secret_key_path.pem> ec2-user@<public_ip>

@@ -18,6 +18,7 @@ ALTER USER 'root'@'localhost' IDENTIFIED BY 'Hitandrun48.';
 
 # EBSの付け替え
 ## EBSアンマウント
+$ ssh -i ./../../key/spot-db-test.pem ec2-user@13.231.218.24
 ### 停止
 $ sudo systemctl stop mysqld
 ### マウント状態の確認
@@ -30,15 +31,20 @@ $ sudo cp /etc/fstab /etc/fstab.backup
 $ sudo sed -i 's|/dev/xvdf /data xfs defaults,nofail 0 2|#/dev/xvdf /data xfs defaults,nofail 0 2|' /etc/fstab
 ## EBSデタッチ
 $ aws ec2 detach-volume --volume-id $(terraform output -raw spot_db_volume_id)
+aws ec2 detach-volume --volume-id vol-0d86aebb7683a1dfb --region ap-northeast-1
 
+$ exit
+$ ssh -i ./../../key/spot-db-test.pem ec2-user@18.182.47.73
 ## EBSアタッチ
 $ MSYS_NO_PATHCONV=1 aws ec2 attach-volume --volume-id $(terraform output -raw spot_db_volume_id) --instance-id $(terraform output -raw spot_db_destination_instance_id) --device "/dev/xvdf"
+MSYS_NO_PATHCONV=1 aws ec2 attach-volume --volume-id vol-0d86aebb7683a1dfb --instance-id i-0b73891b7c21eb36c --device "/dev/xvdf" --region ap-northeast-1
 ## EBSマウント
+### ファイル作成
+$ sudo mkdir -p /data
 ### マウント
 $ sudo mount /dev/xvdf /data
-### 永続的なマウントの設定(PermissionDenied)
-$ sudo echo "/dev/xvdf /data xfs defaults,nofail 0 2" >> /etc/fstab
 ###  シンボリックリンクの作成
+$ sudo rm -rf /var/lib/mysql
 $ sudo ln -s /data/mysql /var/lib/mysql
 ### 権限の設定
 $ sudo chown -R mysql:mysql /data/mysql
@@ -62,3 +68,32 @@ $ sudo systemctl stop mysqld
 $ sudo umount /data
 $ sudo reboot
 $ terraform destroy -auto-approve / terraform apply -auto-approve
+
+
+
+
+# MySQLのステータス確認
+$ sudo systemctl status mysqld
+
+# 初期パスワード確認
+$ sudo grep 'temporary password' /var/log/mysqld.log
+### 接続
+$ sudo mysql -u root -p
+### パスワード変更（初期）
+$ ALTER USER 'root'@'localhost' IDENTIFIED BY 'Hitandrun48.';
+# データ挿入
+$ SHOW DATABASES;
+$ CREATE DATABASE test_list;
+$ USE test_list;
+$ CREATE TABLE member (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL
+);
+
+
+
+# 正しい位置にmySQLデータがあるか確認
+$ sudo ls -la /data/mysql/test_member_list
+# シンボリックリンクの確認
+$ ls -la /var/lib/mysql
+#-- /var/lib/mysql -> /data/mysql

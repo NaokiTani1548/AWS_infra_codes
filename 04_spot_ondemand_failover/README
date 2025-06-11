@@ -1,0 +1,21 @@
+# スポットインスタンス中断実行方法(envs/devで実行)
+1. インフラ構築
+```
+$ terraform apply -auto-approve
+```
+2.  実験テンプレートの構築
+```
+$ aws fis create-experiment-template --cli-input-json file://template.json
+```
+3. 実験の実行
+```
+$ aws fis start-experiment --experiment-template-id EXTB5WNxWX77JhBcU
+```
+
+4. 実行の確認
+```
+$ aws fis get-experiment --id <experiment-id>
+```
+
+# リソース削除/更新　-->　tagをterraform 管理から外す
+$ terraform state rm module.spot_instance.aws_ec2_tag.spot_db_tag

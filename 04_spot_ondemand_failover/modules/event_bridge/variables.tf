@@ -1,0 +1,10 @@
+variable "project" {}
+variable "env" {}
+variable "region" {}
+variable "spot_instance_id" {}
+variable "ondemand_instance_id" {}
+variable "volume_id" {}
+variable "s3_bucket" {}
+variable "s3_key" {}
+variable "source_host" {}
+variable "destination_host" {}
