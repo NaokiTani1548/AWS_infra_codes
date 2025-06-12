@@ -10,9 +10,9 @@ output "ondemand_db_instance_id" {
 }
 
 output "spot_instance_host" {
-  value = aws_spot_instance_request.spot-db.host_id
+  value = aws_spot_instance_request.spot-db.public_ip
 }
 
 output "ondemand_instance_host" {
-  value = aws_instance.ondemand-db.host_id
+  value = aws_instance.ondemand-db.public_ip
 }

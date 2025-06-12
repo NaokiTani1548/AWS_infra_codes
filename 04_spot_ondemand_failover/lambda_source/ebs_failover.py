@@ -9,6 +9,24 @@ from botocore.exceptions import ClientError
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
+ssm = boto3.client('ssm', region_name='ap-northeast-1')
+
+def get_ssh_key_from_ssm(param_name):
+    """SSMパラメータストアからSSH秘密鍵を取得して一時ファイルに保存"""
+    try:
+        response = ssm.get_parameter(Name=param_name, WithDecryption=True)
+        private_key_str = response['Parameter']['Value']
+
+        temp_key_path = "/tmp/ssh_key.pem"
+        with open(temp_key_path, 'w') as f:
+            f.write(private_key_str)
+        
+        os.chmod(temp_key_path, 0o600)
+        return temp_key_path
+    except ClientError as e:
+        logger.error(f"Failed to retrieve SSH key from SSM: {str(e)}")
+        raise e
+
 def execute_ssh_command(host, username, key_path, command):
     """SSHでコマンドを実行する関数"""
     try:
@@ -42,7 +60,10 @@ def lambda_handler(event, context):
         volume_id = os.environ['VOLUME_ID']
         source_host = os.environ['SOURCE_HOST']
         destination_host = os.environ['DESTINATION_HOST']
-        key_path = './../../key/spot-db-test.pem'  # Lambdaの一時ディレクトリに配置
+        
+        # SSMパラメータストアから秘密鍵を取得
+        ssm_param_name = "/spot-ondemand-failover/dev/ssh_private_key"
+        key_path = get_ssh_key_from_ssm(ssm_param_name)
         
         # EC2クライアントの初期化
         ec2 = boto3.client('ec2', region_name='ap-northeast-1')

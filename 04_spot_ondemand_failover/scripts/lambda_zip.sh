@@ -19,21 +19,25 @@ OUTPUT_ZIP="$LAMBDA_SRC_DIR/$ZIP_NAME"
 rm -rf "$BUILD_DIR"
 mkdir -p "$BUILD_DIR"
 
-echo "📦 Building Lambda package using Lambda base image..."
+echo "📦 Building Lambda package using amazonlinux:2023..."
 
+# Docker を使って Amazon Linux 2023 環境で依存関係をインストール＆zip化
 docker run --rm \
-  -v "$LAMBDA_SRC_DIR":/lambda_source \
-  -v "$BUILD_DIR":/build \
-  public.ecr.aws/lambda/python:3.12 \
-  /bin/sh -c "
-    cd /build && \
-    python3 -m pip install --upgrade pip && \
-    pip install boto3 paramiko --target . && \
-    cp /lambda_source/ebs_failover.py . && \
-    zip -r9 /lambda_source/$ZIP_NAME .
+  -v "$LAMBDA_SRC_DIR":/lambda \
+  -v "$BUILD_DIR":/out \
+  amazonlinux:2023 \
+  /bin/bash -c "
+    dnf install -y python3 python3-pip gcc git zip libffi-devel openssl-devel make > /dev/null && \
+    pip3 install boto3 paramiko --target /out > /dev/null && \
+    cp /lambda/ebs_failover.py /out/ && \
+    cd /out && zip -r $ZIP_NAME . > /dev/null
   "
 
+# zip を lambda_source に移動
+mv "$BUILD_DIR/$ZIP_NAME" "$OUTPUT_ZIP"
+
 echo "✅ Lambda ZIP created at: $OUTPUT_ZIP"
+
 
 
 

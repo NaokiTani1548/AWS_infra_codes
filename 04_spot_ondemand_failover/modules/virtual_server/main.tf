@@ -31,7 +31,7 @@ resource "aws_spot_instance_request" "spot-db" {
         ignore_changes = [ "id" ]
     }
 
-    ami                         = data.aws_ami.app.id
+    ami                         = "ami-027fff96cc515f7bc"
     availability_zone           = "ap-northeast-1c"
     ebs_optimized               = false
     instance_type               = "t2.micro"
@@ -155,7 +155,7 @@ resource "aws_ec2_tag" "spot_db_tag" {
 # オンデマンドEC2インスタンス（起動時は停止）
 # ---------------------------------------------
 resource "aws_instance" "ondemand-db" {
-  ami                    = data.aws_ami.app.id
+  ami                    = "ami-027fff96cc515f7bc"
   instance_type          = "t2.micro"
   availability_zone      = "ap-northeast-1c"
   key_name               = aws_key_pair.keypair.key_name

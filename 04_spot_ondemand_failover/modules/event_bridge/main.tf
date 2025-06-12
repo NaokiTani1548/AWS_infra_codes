@@ -31,8 +31,9 @@ resource "aws_lambda_function" "ebs_failover" {
   s3_bucket = var.s3_bucket
   s3_key    = var.s3_key
   handler       = "ebs_failover.lambda_handler"
-  runtime       = "python3.11"
+  runtime       = "python3.9"
   timeout       = 60
+  layers = [ "arn:aws:lambda:ap-northeast-1:058898200941:layer:paramiko-layer:5" ]
 
   environment {
     variables = {
@@ -98,7 +99,17 @@ resource "aws_iam_role_policy" "lambda_policy" {
         Effect = "Allow",
         Action = [
           "s3:GetObject"
-        ],
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ssm:GetParameter",
+          "ssm:GetParameters",
+          "ssm:DescribeParameters",
+          "kms:Decrypt"
+        ]
         Resource = "*"
       }
     ]
