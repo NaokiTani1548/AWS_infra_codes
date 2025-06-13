@@ -62,17 +62,18 @@ resource "aws_spot_instance_request" "spot-db" {
             echo "/dev/xvdf /data xfs defaults,nofail 0 2" >> /etc/fstab
 
             # パッケージの更新
-            sudo yum update -y
+            sudo dnf update -y
 
             # 既存パッケージの削除
-            sudo yum remove -y mariadb-*
+            sudo dnf remove -y mariadb-*
 
             # MySQLのリポジトリをyumに追加
-            sudo yum localinstall -y https://dev.mysql.com/get/mysql80-community-release-el7-11.noarch.rpm
+            sudo dnf install -y https://dev.mysql.com/get/mysql80-community-release-el9-1.noarch.rpm 
 
             # MySQLのインストール
-            sudo yum install -y --enablerepo=mysql80-community mysql-community-server
-            sudo yum install -y --enablerepo=mysql80-community mysql-community-devel
+            wget https://repo.mysql.com/RPM-GPG-KEY-mysql-2023
+            sudo rpm --import RPM-GPG-KEY-mysql-2023
+            sudo dnf --enablerepo=mysql80-community install -y mysql-community-server mysql-community-devel
 
             # MySQLサービスを停止
             sudo systemctl stop mysqld
@@ -110,7 +111,7 @@ resource "aws_spot_instance_request" "spot-db" {
 
             # SELinuxが有効な場合のみ設定を実行
             if [ "$(getenforce)" != "Disabled" ]; then
-                sudo yum install -y policycoreutils-python
+                sudo dnf install -y policycoreutils-python
                 sudo semanage fcontext -a -t mysqld_db_t "/data/mysql(/.*)?"
                 sudo restorecon -R /data/mysql
             fi
@@ -118,6 +119,10 @@ resource "aws_spot_instance_request" "spot-db" {
             # MySQLの起動前にデータディレクトリの権限を再確認
             sudo chown -R mysql:mysql /data/mysql
             sudo chmod -R 750 /data/mysql
+
+            # my.cnfのdatadirとsocketを修正
+            sudo sed -i 's|^datadir=.*|datadir=/data/mysql|' /etc/my.cnf
+            # sudo sed -i 's|^socket=.*|socket=/data/mysql/mysql.sock|' /etc/my.cnf
 
             # MySQLの起動
             sudo systemctl start mysqld
@@ -141,6 +146,8 @@ resource "aws_spot_instance_request" "spot-db" {
                 fi
                 sleep 1
             done
+
+            sudo reboot
             EOF
 }
 
@@ -183,17 +190,18 @@ resource "aws_instance" "ondemand-db" {
               set -e
 
               # パッケージの更新
-              sudo yum update -y
+              sudo dnf update -y
 
               # 既存パッケージの削除
-              sudo yum remove -y mariadb-*
+              sudo dnf remove -y mariadb-*
 
               # MySQLのリポジトリをyumに追加
-              sudo yum localinstall -y https://dev.mysql.com/get/mysql80-community-release-el7-11.noarch.rpm
+              sudo dnf install -y https://dev.mysql.com/get/mysql80-community-release-el9-1.noarch.rpm 
 
               # MySQLのインストール
-              sudo yum install -y --enablerepo=mysql80-community mysql-community-server
-              sudo yum install -y --enablerepo=mysql80-community mysql-community-devel
+              wget https://repo.mysql.com/RPM-GPG-KEY-mysql-2023
+              sudo rpm --import RPM-GPG-KEY-mysql-2023
+              sudo dnf --enablerepo=mysql80-community install -y mysql-community-server mysql-community-devel
 
               # MySQLサービスを停止
               sudo systemctl stop mysqld
@@ -205,7 +213,7 @@ resource "aws_instance" "ondemand-db" {
 
               # SELinuxが有効な場合のみ設定を実行
               if [ "$(getenforce)" != "Disabled" ]; then
-                  sudo yum install -y policycoreutils-python
+                  sudo dnf install -y policycoreutils-python
                   sudo semanage fcontext -a -t mysqld_db_t "/data/mysql(/.*)?"
                   sudo restorecon -R /data/mysql
               fi
@@ -222,10 +230,14 @@ resource "aws_instance" "ondemand-db" {
               sudo chown -R mysql:mysql /data/mysql
               sudo chmod -R 750 /data/mysql
 
+              # my.cnfのdatadirとsocketを修正
+              sudo sed -i 's|^datadir=.*|datadir=/data/mysql|' /etc/my.cnf
+
               # MySQLの初期化（初回のみ）
               if [ ! -f /data/mysql/mysql ]; then
                   sudo mysqld --initialize-insecure --user=mysql
               fi
+              sudo rm -rf /var/lib/mysql
               EOF
 }
 

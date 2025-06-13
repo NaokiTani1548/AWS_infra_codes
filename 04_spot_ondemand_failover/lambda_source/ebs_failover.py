@@ -11,6 +11,18 @@ logger.setLevel(logging.INFO)
 
 ssm = boto3.client('ssm', region_name='ap-northeast-1')
 
+def wait_for_device(host, username, key_path, device_path="/dev/xvdf", timeout=30):
+    """リモートホストでデバイスが見えるようになるまで待機"""
+    start = time.time()
+    while time.time() - start < timeout:
+        success, output = execute_ssh_command(
+            host, username, key_path, f"ls {device_path}"
+        )
+        if success:
+            return True
+        time.sleep(2)
+    return False
+
 def get_ssh_key_from_ssm(param_name):
     """SSMパラメータストアからSSH秘密鍵を取得して一時ファイルに保存"""
     try:
@@ -116,6 +128,10 @@ def lambda_handler(event, context):
         # アタッチの完了を待機
         waiter = ec2.get_waiter('volume_in_use')
         waiter.wait(VolumeIds=[volume_id])
+
+        logger.info("Waiting for device to become available on destination host")
+        if not wait_for_device(destination_host, 'ec2-user', key_path):
+            raise Exception("Device /dev/xvdf not found on destination host after attach")
         
         # 4. デスティネーションインスタンスでの処理
         logger.info("Starting EBS mount process on destination instance")
@@ -129,12 +145,33 @@ def lambda_handler(event, context):
             'sudo chmod 750 /data/mysql',
             'sudo systemctl start mysqld'
         ]
+
+        # 追加: /etc/my.cnf を書き換え
+        my_cnf_content = """[mysqld]
+datadir=/data/mysql
+socket=/data/mysql/mysql.sock
+
+[client]
+socket=/data/mysql/mysql.sock
+"""
+        # echoで内容を上書き
+        update_my_cnf_cmd = f"echo '{my_cnf_content}' | sudo tee /etc/my.cnf"
         
         for cmd in mount_commands:
             success, output = execute_ssh_command(destination_host, 'ec2-user', key_path, cmd)
             if not success:
                 raise Exception(f"Failed to execute command: {cmd}, Error: {output}")
-        
+
+        # /etc/my.cnfの書き換え
+        success, output = execute_ssh_command(destination_host, 'ec2-user', key_path, update_my_cnf_cmd)
+        if not success:
+            raise Exception(f"Failed to update /etc/my.cnf: {output}")
+
+        # MySQL再起動
+        success, output = execute_ssh_command(destination_host, 'ec2-user', key_path, 'sudo systemctl restart mysqld')
+        if not success:
+            raise Exception(f"Failed to restart mysqld: {output}")
+
         logger.info("EBS failover completed successfully")
         return {
             'statusCode': 200,

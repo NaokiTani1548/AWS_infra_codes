@@ -21,7 +21,26 @@ $ aws fis get-experiment --id <experiment-id>
 $ terraform state rm module.spot_instance.aws_ec2_tag.spot_db_tag
 
 
-"LayerVersionArn": "arn:aws:lambda:ap-northeast-1:058898200941:layer:paramiko-layer:1",
+####
+$ sudo systemctl start mysqld
+$ sudo systemctl status mysqld
+# 初期パスワード確認
+$ sudo grep 'temporary password' /var/log/mysqld.log
+### 接続
+$ sudo mysql -u root -p
+### パスワード変更（初期）
+$ ALTER USER 'root'@'localhost' IDENTIFIED BY 'Hitandrun48.';
+# データ挿入
+$ SHOW DATABASES;
+$ CREATE DATABASE test_list;
+$ USE test_list;
+$ CREATE TABLE member (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL
+);
+$ INSERT INTO member (name) VALUES ("Yoshida"),("Tani");
+$ select * from member;
+
 
 
 # lambdaコード

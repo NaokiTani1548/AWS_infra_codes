@@ -70,7 +70,7 @@ $ sudo reboot
 $ terraform destroy -auto-approve / terraform apply -auto-approve
 
 
-
+sudo systemctl start mysqld
 
 # MySQLのステータス確認
 $ sudo systemctl status mysqld
@@ -89,11 +89,12 @@ $ CREATE TABLE member (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL
 );
-
+$ INSERT INTO member (name) VALUES ("Yoshida"),("Tani");
+$ select * from member;
 
 
 # 正しい位置にmySQLデータがあるか確認
-$ sudo ls -la /data/mysql/test_member_list
+$ sudo ls -la /data/mysql/test_list
 # シンボリックリンクの確認
 $ ls -la /var/lib/mysql
 #-- /var/lib/mysql -> /data/mysql

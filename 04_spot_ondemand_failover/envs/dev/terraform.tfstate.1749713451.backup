@@ -1,0 +1,1537 @@
+{
+  "version": 4,
+  "terraform_version": "1.11.4",
+  "serial": 419,
+  "lineage": "64a30996-7468-a8a5-e53c-e705f4e5592c",
+  "outputs": {},
+  "resources": [
+    {
+      "module": "module.event_bridge",
+      "mode": "managed",
+      "type": "aws_cloudwatch_event_rule",
+      "name": "spot_interruption",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "arn": "arn:aws:events:ap-northeast-1:058898200941:rule/spot-ondemand-failover-dev-spot-interruption",
+            "description": "Catch spot interruption",
+            "event_bus_name": "default",
+            "event_pattern": "{\"detail-type\":[\"EC2 Spot Instance Interruption Warning\"],\"source\":[\"aws.ec2\"]}",
+            "force_destroy": false,
+            "id": "spot-ondemand-failover-dev-spot-interruption",
+            "is_enabled": true,
+            "name": "spot-ondemand-failover-dev-spot-interruption",
+            "name_prefix": "",
+            "role_arn": "",
+            "schedule_expression": "",
+            "state": "ENABLED",
+            "tags": {},
+            "tags_all": {}
+          },
+          "sensitive_attributes": [],
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjEifQ=="
+        }
+      ]
+    },
+    {
+      "module": "module.event_bridge",
+      "mode": "managed",
+      "type": "aws_cloudwatch_event_target",
+      "name": "lambda_target",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "appsync_target": [],
+            "arn": "arn:aws:lambda:ap-northeast-1:058898200941:function:spot-ondemand-failover-dev-ebs-failover",
+            "batch_target": [],
+            "dead_letter_config": [],
+            "ecs_target": [],
+            "event_bus_name": "default",
+            "force_destroy": false,
+            "http_target": [],
+            "id": "spot-ondemand-failover-dev-spot-interruption-LambdaTarget",
+            "input": "",
+            "input_path": "",
+            "input_transformer": [],
+            "kinesis_target": [],
+            "redshift_target": [],
+            "retry_policy": [],
+            "role_arn": "",
+            "rule": "spot-ondemand-failover-dev-spot-interruption",
+            "run_command_targets": [],
+            "sagemaker_pipeline_target": [],
+            "sqs_target": [],
+            "target_id": "LambdaTarget"
+          },
+          "sensitive_attributes": [],
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjEifQ==",
+          "dependencies": [
+            "module.event_bridge.aws_cloudwatch_event_rule.spot_interruption",
+            "module.event_bridge.aws_iam_role.lambda_role",
+            "module.event_bridge.aws_lambda_function.ebs_failover",
+            "module.network.aws_subnet.public_subnet_1",
+            "module.network.aws_vpc.vpc",
+            "module.spot_instance.aws_ebs_volume.spot-db-volume",
+            "module.spot_instance.aws_iam_instance_profile.ec2_ebs_profile",
+            "module.spot_instance.aws_iam_role.ec2_ebs_role",
+            "module.spot_instance.aws_instance.ondemand-db",
+            "module.spot_instance.aws_key_pair.keypair",
+            "module.spot_instance.aws_security_group.db_sg",
+            "module.spot_instance.aws_spot_instance_request.spot-db"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.event_bridge",
+      "mode": "managed",
+      "type": "aws_cloudwatch_log_group",
+      "name": "spot_log_group",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:logs:ap-northeast-1:058898200941:log-group:/fis/logs/",
+            "id": "/fis/logs/",
+            "kms_key_id": "",
+            "log_group_class": "STANDARD",
+            "name": "/fis/logs/",
+            "name_prefix": "",
+            "retention_in_days": 1,
+            "skip_destroy": false,
+            "tags": {},
+            "tags_all": {}
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA=="
+        }
+      ]
+    },
+    {
+      "module": "module.event_bridge",
+      "mode": "managed",
+      "type": "aws_iam_role",
+      "name": "fis_role",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:iam::058898200941:role/spot-ondemand-failover-dev-fis-role",
+            "assume_role_policy": "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"fis.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}",
+            "create_date": "2025-06-10T16:56:45Z",
+            "description": "",
+            "force_detach_policies": false,
+            "id": "spot-ondemand-failover-dev-fis-role",
+            "inline_policy": [],
+            "managed_policy_arns": [
+              "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess",
+              "arn:aws:iam::aws:policy/service-role/AWSFaultInjectionSimulatorEC2Access"
+            ],
+            "max_session_duration": 3600,
+            "name": "spot-ondemand-failover-dev-fis-role",
+            "name_prefix": "",
+            "path": "/",
+            "permissions_boundary": "",
+            "tags": {},
+            "tags_all": {},
+            "unique_id": "AROAQ3NU3HFWXWA7A4PRC"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA=="
+        }
+      ]
+    },
+    {
+      "module": "module.event_bridge",
+      "mode": "managed",
+      "type": "aws_iam_role",
+      "name": "lambda_role",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:iam::058898200941:role/spot-ondemand-failover-dev-lambda-role",
+            "assume_role_policy": "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"lambda.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}",
+            "create_date": "2025-06-10T16:56:45Z",
+            "description": "",
+            "force_detach_policies": false,
+            "id": "spot-ondemand-failover-dev-lambda-role",
+            "inline_policy": [
+              {
+                "name": "spot-ondemand-failover-dev-lambda-policy",
+                "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":[\"ec2:DescribeInstances\",\"ec2:DetachVolume\",\"ec2:AttachVolume\",\"ec2:StartInstances\",\"ec2:StopInstances\",\"ec2:DescribeVolumes\",\"ec2:DescribeVolumeStatus\"],\"Effect\":\"Allow\",\"Resource\":\"*\"},{\"Action\":[\"logs:CreateLogGroup\",\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Effect\":\"Allow\",\"Resource\":\"*\"},{\"Action\":[\"s3:GetObject\"],\"Effect\":\"Allow\",\"Resource\":\"*\"},{\"Action\":[\"ssm:GetParameter\",\"ssm:GetParameters\",\"ssm:DescribeParameters\",\"kms:Decrypt\"],\"Effect\":\"Allow\",\"Resource\":\"*\"}]}"
+              }
+            ],
+            "managed_policy_arns": [],
+            "max_session_duration": 3600,
+            "name": "spot-ondemand-failover-dev-lambda-role",
+            "name_prefix": "",
+            "path": "/",
+            "permissions_boundary": "",
+            "tags": {},
+            "tags_all": {},
+            "unique_id": "AROAQ3NU3HFWYIWNQD2VX"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA=="
+        }
+      ]
+    },
+    {
+      "module": "module.event_bridge",
+      "mode": "managed",
+      "type": "aws_iam_role_policy",
+      "name": "lambda_policy",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "spot-ondemand-failover-dev-lambda-role:spot-ondemand-failover-dev-lambda-policy",
+            "name": "spot-ondemand-failover-dev-lambda-policy",
+            "name_prefix": "",
+            "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":[\"ec2:DescribeInstances\",\"ec2:DetachVolume\",\"ec2:AttachVolume\",\"ec2:StartInstances\",\"ec2:StopInstances\",\"ec2:DescribeVolumes\",\"ec2:DescribeVolumeStatus\"],\"Effect\":\"Allow\",\"Resource\":\"*\"},{\"Action\":[\"logs:CreateLogGroup\",\"logs:CreateLogStream\",\"logs:PutLogEvents\"],\"Effect\":\"Allow\",\"Resource\":\"*\"},{\"Action\":[\"s3:GetObject\"],\"Effect\":\"Allow\",\"Resource\":\"*\"},{\"Action\":[\"ssm:GetParameter\",\"ssm:GetParameters\",\"ssm:DescribeParameters\",\"kms:Decrypt\"],\"Effect\":\"Allow\",\"Resource\":\"*\"}]}",
+            "role": "spot-ondemand-failover-dev-lambda-role"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "module.event_bridge.aws_iam_role.lambda_role"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.event_bridge",
+      "mode": "managed",
+      "type": "aws_iam_role_policy_attachment",
+      "name": "FIS-Logs-policy-attachment",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "spot-ondemand-failover-dev-fis-role-20250610165646101400000003",
+            "policy_arn": "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess",
+            "role": "spot-ondemand-failover-dev-fis-role"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "module.event_bridge.aws_iam_role.fis_role"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.event_bridge",
+      "mode": "managed",
+      "type": "aws_iam_role_policy_attachment",
+      "name": "FIS-policy-attachment",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "spot-ondemand-failover-dev-fis-role-20250610165646089000000002",
+            "policy_arn": "arn:aws:iam::aws:policy/service-role/AWSFaultInjectionSimulatorEC2Access",
+            "role": "spot-ondemand-failover-dev-fis-role"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "module.event_bridge.aws_iam_role.fis_role"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.event_bridge",
+      "mode": "managed",
+      "type": "aws_lambda_function",
+      "name": "ebs_failover",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "architectures": [
+              "x86_64"
+            ],
+            "arn": "arn:aws:lambda:ap-northeast-1:058898200941:function:spot-ondemand-failover-dev-ebs-failover",
+            "code_sha256": "/j8ZQ7fefh6AI/PlhZIpIPe0ku2yhRPNrtQbc+Ga5NU=",
+            "code_signing_config_arn": "",
+            "dead_letter_config": [],
+            "description": "",
+            "environment": [
+              {
+                "variables": {
+                  "DESTINATION_HOST": "3.112.49.95",
+                  "ONDEMAND_INSTANCE_ID": "i-0908912c2020945c4",
+                  "SOURCE_HOST": "35.78.123.172",
+                  "VOLUME_ID": "vol-0a398ba45f5653d30"
+                }
+              }
+            ],
+            "ephemeral_storage": [
+              {
+                "size": 512
+              }
+            ],
+            "file_system_config": [],
+            "filename": null,
+            "function_name": "spot-ondemand-failover-dev-ebs-failover",
+            "handler": "ebs_failover.lambda_handler",
+            "id": "spot-ondemand-failover-dev-ebs-failover",
+            "image_config": [],
+            "image_uri": "",
+            "invoke_arn": "arn:aws:apigateway:ap-northeast-1:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-northeast-1:058898200941:function:spot-ondemand-failover-dev-ebs-failover/invocations",
+            "kms_key_arn": "",
+            "last_modified": "2025-06-12T07:18:11.000+0000",
+            "layers": [
+              "arn:aws:lambda:ap-northeast-1:058898200941:layer:paramiko-layer:5"
+            ],
+            "logging_config": [
+              {
+                "application_log_level": "",
+                "log_format": "Text",
+                "log_group": "/aws/lambda/spot-ondemand-failover-dev-ebs-failover",
+                "system_log_level": ""
+              }
+            ],
+            "memory_size": 128,
+            "package_type": "Zip",
+            "publish": false,
+            "qualified_arn": "arn:aws:lambda:ap-northeast-1:058898200941:function:spot-ondemand-failover-dev-ebs-failover:$LATEST",
+            "qualified_invoke_arn": "arn:aws:apigateway:ap-northeast-1:lambda:path/2015-03-31/functions/arn:aws:lambda:ap-northeast-1:058898200941:function:spot-ondemand-failover-dev-ebs-failover:$LATEST/invocations",
+            "replace_security_groups_on_destroy": null,
+            "replacement_security_group_ids": null,
+            "reserved_concurrent_executions": -1,
+            "role": "arn:aws:iam::058898200941:role/spot-ondemand-failover-dev-lambda-role",
+            "runtime": "python3.9",
+            "s3_bucket": "dev-spot-ondemand-failover-lambda-source",
+            "s3_key": "lambda_source/ebs_failover.zip",
+            "s3_object_version": null,
+            "signing_job_arn": "",
+            "signing_profile_version_arn": "",
+            "skip_destroy": false,
+            "snap_start": [],
+            "source_code_hash": "",
+            "source_code_size": 2023,
+            "tags": {
+              "Env": "dev",
+              "Name": "spot-ondemand-failover-dev-lambda-failover-manager",
+              "Project": "spot-ondemand-failover"
+            },
+            "tags_all": {
+              "Env": "dev",
+              "Name": "spot-ondemand-failover-dev-lambda-failover-manager",
+              "Project": "spot-ondemand-failover"
+            },
+            "timeout": 60,
+            "timeouts": null,
+            "tracing_config": [
+              {
+                "mode": "PassThrough"
+              }
+            ],
+            "version": "$LATEST",
+            "vpc_config": []
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6NjAwMDAwMDAwMDAwLCJ1cGRhdGUiOjYwMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "module.event_bridge.aws_iam_role.lambda_role",
+            "module.network.aws_subnet.public_subnet_1",
+            "module.network.aws_vpc.vpc",
+            "module.spot_instance.aws_ebs_volume.spot-db-volume",
+            "module.spot_instance.aws_iam_instance_profile.ec2_ebs_profile",
+            "module.spot_instance.aws_iam_role.ec2_ebs_role",
+            "module.spot_instance.aws_instance.ondemand-db",
+            "module.spot_instance.aws_key_pair.keypair",
+            "module.spot_instance.aws_security_group.db_sg",
+            "module.spot_instance.aws_spot_instance_request.spot-db"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.event_bridge",
+      "mode": "managed",
+      "type": "aws_lambda_permission",
+      "name": "allow_eventbridge",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "action": "lambda:InvokeFunction",
+            "event_source_token": null,
+            "function_name": "spot-ondemand-failover-dev-ebs-failover",
+            "function_url_auth_type": null,
+            "id": "AllowExecutionFromEventBridge",
+            "principal": "events.amazonaws.com",
+            "principal_org_id": null,
+            "qualifier": "",
+            "source_account": null,
+            "source_arn": "arn:aws:events:ap-northeast-1:058898200941:rule/spot-ondemand-failover-dev-spot-interruption",
+            "statement_id": "AllowExecutionFromEventBridge",
+            "statement_id_prefix": ""
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "module.event_bridge.aws_cloudwatch_event_rule.spot_interruption",
+            "module.event_bridge.aws_iam_role.lambda_role",
+            "module.event_bridge.aws_lambda_function.ebs_failover",
+            "module.network.aws_subnet.public_subnet_1",
+            "module.network.aws_vpc.vpc",
+            "module.spot_instance.aws_ebs_volume.spot-db-volume",
+            "module.spot_instance.aws_iam_instance_profile.ec2_ebs_profile",
+            "module.spot_instance.aws_iam_role.ec2_ebs_role",
+            "module.spot_instance.aws_instance.ondemand-db",
+            "module.spot_instance.aws_key_pair.keypair",
+            "module.spot_instance.aws_security_group.db_sg",
+            "module.spot_instance.aws_spot_instance_request.spot-db"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.lambda_source_s3",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "lambda_src",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "acceleration_status": "",
+            "acl": null,
+            "arn": "arn:aws:s3:::dev-spot-ondemand-failover-lambda-source",
+            "bucket": "dev-spot-ondemand-failover-lambda-source",
+            "bucket_domain_name": "dev-spot-ondemand-failover-lambda-source.s3.amazonaws.com",
+            "bucket_prefix": "",
+            "bucket_regional_domain_name": "dev-spot-ondemand-failover-lambda-source.s3.ap-northeast-1.amazonaws.com",
+            "cors_rule": [],
+            "force_destroy": false,
+            "grant": [
+              {
+                "id": "82435494269d3c9a2833264ff6b8aa263d6f3144b19bf891915077165e2620ec",
+                "permissions": [
+                  "FULL_CONTROL"
+                ],
+                "type": "CanonicalUser",
+                "uri": ""
+              }
+            ],
+            "hosted_zone_id": "Z2M4EHUR26P7ZW",
+            "id": "dev-spot-ondemand-failover-lambda-source",
+            "lifecycle_rule": [],
+            "logging": [],
+            "object_lock_configuration": [],
+            "object_lock_enabled": false,
+            "policy": "",
+            "region": "ap-northeast-1",
+            "replication_configuration": [],
+            "request_payer": "BucketOwner",
+            "server_side_encryption_configuration": [
+              {
+                "rule": [
+                  {
+                    "apply_server_side_encryption_by_default": [
+                      {
+                        "kms_master_key_id": "",
+                        "sse_algorithm": "AES256"
+                      }
+                    ],
+                    "bucket_key_enabled": false
+                  }
+                ]
+              }
+            ],
+            "tags": {
+              "Env": "dev",
+              "Name": "spot-ondemand-failover-dev-s3-lambda-source",
+              "Project": "spot-ondemand-failover"
+            },
+            "tags_all": {
+              "Env": "dev",
+              "Name": "spot-ondemand-failover-dev-s3-lambda-source",
+              "Project": "spot-ondemand-failover"
+            },
+            "timeouts": null,
+            "versioning": [
+              {
+                "enabled": false,
+                "mfa_delete": false
+              }
+            ],
+            "website": [],
+            "website_domain": null,
+            "website_endpoint": null
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjM2MDAwMDAwMDAwMDAsInJlYWQiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19"
+        }
+      ]
+    },
+    {
+      "module": "module.lambda_source_s3",
+      "mode": "managed",
+      "type": "aws_s3_object",
+      "name": "lambda_zip",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "acl": null,
+            "arn": "arn:aws:s3:::dev-spot-ondemand-failover-lambda-source/lambda_source/ebs_failover.zip",
+            "bucket": "dev-spot-ondemand-failover-lambda-source",
+            "bucket_key_enabled": false,
+            "cache_control": "",
+            "checksum_algorithm": null,
+            "checksum_crc32": "",
+            "checksum_crc32c": "",
+            "checksum_crc64nvme": "",
+            "checksum_sha1": "",
+            "checksum_sha256": "",
+            "content": null,
+            "content_base64": null,
+            "content_disposition": "",
+            "content_encoding": "",
+            "content_language": "",
+            "content_type": "application/octet-stream",
+            "etag": "2ae6a9271046955996f0350957863515",
+            "force_destroy": false,
+            "id": "lambda_source/ebs_failover.zip",
+            "key": "lambda_source/ebs_failover.zip",
+            "kms_key_id": null,
+            "metadata": {},
+            "object_lock_legal_hold_status": "",
+            "object_lock_mode": "",
+            "object_lock_retain_until_date": "",
+            "override_provider": [],
+            "server_side_encryption": "AES256",
+            "source": "./../../lambda_source/ebs_failover.zip",
+            "source_hash": null,
+            "storage_class": "STANDARD",
+            "tags": {},
+            "tags_all": {},
+            "version_id": "",
+            "website_redirect": ""
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "module.lambda_source_s3.aws_s3_bucket.lambda_src"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.network",
+      "mode": "managed",
+      "type": "aws_internet_gateway",
+      "name": "igw",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:ec2:ap-northeast-1:058898200941:internet-gateway/igw-06d535a0c1270abbb",
+            "id": "igw-06d535a0c1270abbb",
+            "owner_id": "058898200941",
+            "tags": {
+              "Environment": "dev",
+              "Name": "spot-ondemand-failover-dev-igw",
+              "Project": "spot-ondemand-failover"
+            },
+            "tags_all": {
+              "Environment": "dev",
+              "Name": "spot-ondemand-failover-dev-igw",
+              "Project": "spot-ondemand-failover"
+            },
+            "timeouts": null,
+            "vpc_id": "vpc-0b2dc244e68af39f1"
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "module.network.aws_vpc.vpc"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.network",
+      "mode": "managed",
+      "type": "aws_route",
+      "name": "public-route",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "carrier_gateway_id": "",
+            "core_network_arn": "",
+            "destination_cidr_block": "0.0.0.0/0",
+            "destination_ipv6_cidr_block": "",
+            "destination_prefix_list_id": "",
+            "egress_only_gateway_id": "",
+            "gateway_id": "igw-06d535a0c1270abbb",
+            "id": "r-rtb-0223e7d935a0f59391080289494",
+            "instance_id": "",
+            "instance_owner_id": "",
+            "local_gateway_id": "",
+            "nat_gateway_id": "",
+            "network_interface_id": "",
+            "origin": "CreateRoute",
+            "route_table_id": "rtb-0223e7d935a0f5939",
+            "state": "active",
+            "timeouts": null,
+            "transit_gateway_id": "",
+            "vpc_endpoint_id": "",
+            "vpc_peering_connection_id": ""
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjozMDAwMDAwMDAwMDAsImRlbGV0ZSI6MzAwMDAwMDAwMDAwLCJ1cGRhdGUiOjEyMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "module.network.aws_internet_gateway.igw",
+            "module.network.aws_route_table.public_rt",
+            "module.network.aws_vpc.vpc"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.network",
+      "mode": "managed",
+      "type": "aws_route_table",
+      "name": "public_rt",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:ec2:ap-northeast-1:058898200941:route-table/rtb-0223e7d935a0f5939",
+            "id": "rtb-0223e7d935a0f5939",
+            "owner_id": "058898200941",
+            "propagating_vgws": [],
+            "route": [
+              {
+                "carrier_gateway_id": "",
+                "cidr_block": "0.0.0.0/0",
+                "core_network_arn": "",
+                "destination_prefix_list_id": "",
+                "egress_only_gateway_id": "",
+                "gateway_id": "igw-06d535a0c1270abbb",
+                "ipv6_cidr_block": "",
+                "local_gateway_id": "",
+                "nat_gateway_id": "",
+                "network_interface_id": "",
+                "transit_gateway_id": "",
+                "vpc_endpoint_id": "",
+                "vpc_peering_connection_id": ""
+              }
+            ],
+            "tags": {
+              "Environment": "dev",
+              "Name": "spot-ondemand-failover-dev-public-route-table",
+              "Project": "spot-ondemand-failover"
+            },
+            "tags_all": {
+              "Environment": "dev",
+              "Name": "spot-ondemand-failover-dev-public-route-table",
+              "Project": "spot-ondemand-failover"
+            },
+            "timeouts": null,
+            "vpc_id": "vpc-0b2dc244e68af39f1"
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjozMDAwMDAwMDAwMDAsImRlbGV0ZSI6MzAwMDAwMDAwMDAwLCJ1cGRhdGUiOjEyMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "module.network.aws_vpc.vpc"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.network",
+      "mode": "managed",
+      "type": "aws_route_table_association",
+      "name": "public_rt_association_1",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "gateway_id": "",
+            "id": "rtbassoc-020dc4b00a9ff165e",
+            "route_table_id": "rtb-0223e7d935a0f5939",
+            "subnet_id": "subnet-014f1d8044ce3979f",
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjozMDAwMDAwMDAwMDAsImRlbGV0ZSI6MzAwMDAwMDAwMDAwLCJ1cGRhdGUiOjEyMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "module.network.aws_route_table.public_rt",
+            "module.network.aws_subnet.public_subnet_1",
+            "module.network.aws_vpc.vpc"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.network",
+      "mode": "managed",
+      "type": "aws_route_table_association",
+      "name": "public_rt_association_2",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "gateway_id": "",
+            "id": "rtbassoc-031f6cc5b5fb1edeb",
+            "route_table_id": "rtb-0223e7d935a0f5939",
+            "subnet_id": "subnet-0fd38dfef0ffa2d0b",
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjozMDAwMDAwMDAwMDAsImRlbGV0ZSI6MzAwMDAwMDAwMDAwLCJ1cGRhdGUiOjEyMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "module.network.aws_route_table.public_rt",
+            "module.network.aws_subnet.public_subnet_2",
+            "module.network.aws_vpc.vpc"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.network",
+      "mode": "managed",
+      "type": "aws_subnet",
+      "name": "public_subnet_1",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "arn": "arn:aws:ec2:ap-northeast-1:058898200941:subnet/subnet-014f1d8044ce3979f",
+            "assign_ipv6_address_on_creation": false,
+            "availability_zone": "ap-northeast-1c",
+            "availability_zone_id": "apne1-az1",
+            "cidr_block": "192.168.1.0/24",
+            "customer_owned_ipv4_pool": "",
+            "enable_dns64": false,
+            "enable_lni_at_device_index": 0,
+            "enable_resource_name_dns_a_record_on_launch": false,
+            "enable_resource_name_dns_aaaa_record_on_launch": false,
+            "id": "subnet-014f1d8044ce3979f",
+            "ipv6_cidr_block": "",
+            "ipv6_cidr_block_association_id": "",
+            "ipv6_native": false,
+            "map_customer_owned_ip_on_launch": false,
+            "map_public_ip_on_launch": false,
+            "outpost_arn": "",
+            "owner_id": "058898200941",
+            "private_dns_hostname_type_on_launch": "ip-name",
+            "tags": {
+              "Environment": "dev",
+              "Name": "spot-ondemand-failover-dev-public-subnet-1",
+              "Project": "spot-ondemand-failover",
+              "Type": "public"
+            },
+            "tags_all": {
+              "Environment": "dev",
+              "Name": "spot-ondemand-failover-dev-public-subnet-1",
+              "Project": "spot-ondemand-failover",
+              "Type": "public"
+            },
+            "timeouts": null,
+            "vpc_id": "vpc-0b2dc244e68af39f1"
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMSJ9",
+          "dependencies": [
+            "module.network.aws_vpc.vpc"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.network",
+      "mode": "managed",
+      "type": "aws_subnet",
+      "name": "public_subnet_2",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "arn": "arn:aws:ec2:ap-northeast-1:058898200941:subnet/subnet-0fd38dfef0ffa2d0b",
+            "assign_ipv6_address_on_creation": false,
+            "availability_zone": "ap-northeast-1d",
+            "availability_zone_id": "apne1-az2",
+            "cidr_block": "192.168.2.0/24",
+            "customer_owned_ipv4_pool": "",
+            "enable_dns64": false,
+            "enable_lni_at_device_index": 0,
+            "enable_resource_name_dns_a_record_on_launch": false,
+            "enable_resource_name_dns_aaaa_record_on_launch": false,
+            "id": "subnet-0fd38dfef0ffa2d0b",
+            "ipv6_cidr_block": "",
+            "ipv6_cidr_block_association_id": "",
+            "ipv6_native": false,
+            "map_customer_owned_ip_on_launch": false,
+            "map_public_ip_on_launch": false,
+            "outpost_arn": "",
+            "owner_id": "058898200941",
+            "private_dns_hostname_type_on_launch": "ip-name",
+            "tags": {
+              "Environment": "dev",
+              "Name": "spot-ondemand-failover-dev-public-subnet-2",
+              "Project": "spot-ondemand-failover",
+              "Type": "public"
+            },
+            "tags_all": {
+              "Environment": "dev",
+              "Name": "spot-ondemand-failover-dev-public-subnet-2",
+              "Project": "spot-ondemand-failover",
+              "Type": "public"
+            },
+            "timeouts": null,
+            "vpc_id": "vpc-0b2dc244e68af39f1"
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMSJ9",
+          "dependencies": [
+            "module.network.aws_vpc.vpc"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.network",
+      "mode": "managed",
+      "type": "aws_vpc",
+      "name": "vpc",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "arn": "arn:aws:ec2:ap-northeast-1:058898200941:vpc/vpc-0b2dc244e68af39f1",
+            "assign_generated_ipv6_cidr_block": false,
+            "cidr_block": "192.168.0.0/16",
+            "default_network_acl_id": "acl-09f171282bae6675b",
+            "default_route_table_id": "rtb-085b174adac13d553",
+            "default_security_group_id": "sg-04654d5707cc10d86",
+            "dhcp_options_id": "dopt-64708a0c",
+            "enable_dns_hostnames": true,
+            "enable_dns_support": true,
+            "enable_network_address_usage_metrics": false,
+            "id": "vpc-0b2dc244e68af39f1",
+            "instance_tenancy": "default",
+            "ipv4_ipam_pool_id": null,
+            "ipv4_netmask_length": null,
+            "ipv6_association_id": "",
+            "ipv6_cidr_block": "",
+            "ipv6_cidr_block_network_border_group": "",
+            "ipv6_ipam_pool_id": "",
+            "ipv6_netmask_length": 0,
+            "main_route_table_id": "rtb-085b174adac13d553",
+            "owner_id": "058898200941",
+            "tags": {
+              "Environment": "dev",
+              "Name": "spot-ondemand-failover-dev-vpc",
+              "Project": "spot-ondemand-failover"
+            },
+            "tags_all": {
+              "Environment": "dev",
+              "Name": "spot-ondemand-failover-dev-vpc",
+              "Project": "spot-ondemand-failover"
+            }
+          },
+          "sensitive_attributes": [],
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjEifQ=="
+        }
+      ]
+    },
+    {
+      "module": "module.spot_instance",
+      "mode": "data",
+      "type": "aws_ami",
+      "name": "app",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "architecture": "x86_64",
+            "arn": "arn:aws:ec2:ap-northeast-1::image/ami-06419057b0294628f",
+            "block_device_mappings": [
+              {
+                "device_name": "/dev/xvda",
+                "ebs": {
+                  "delete_on_termination": "true",
+                  "encrypted": "false",
+                  "iops": "0",
+                  "snapshot_id": "snap-0b15c1291cc7eb53c",
+                  "throughput": "0",
+                  "volume_initialization_rate": "0",
+                  "volume_size": "8",
+                  "volume_type": "gp2"
+                },
+                "no_device": "",
+                "virtual_name": ""
+              }
+            ],
+            "boot_mode": "",
+            "creation_date": "2025-06-07T01:46:19.000Z",
+            "deprecation_time": "2025-09-05T01:46:00.000Z",
+            "description": "Amazon Linux 2 Kernel 5.10 AMI 2.0.20250605.0 x86_64 HVM gp2",
+            "ena_support": true,
+            "executable_users": null,
+            "filter": [
+              {
+                "name": "name",
+                "values": [
+                  "amzn2-ami-kernel-5.10-hvm-2.0.*-x86_64-gp2"
+                ]
+              },
+              {
+                "name": "root-device-type",
+                "values": [
+                  "ebs"
+                ]
+              },
+              {
+                "name": "virtualization-type",
+                "values": [
+                  "hvm"
+                ]
+              }
+            ],
+            "hypervisor": "xen",
+            "id": "ami-06419057b0294628f",
+            "image_id": "ami-06419057b0294628f",
+            "image_location": "amazon/amzn2-ami-kernel-5.10-hvm-2.0.20250605.0-x86_64-gp2",
+            "image_owner_alias": "amazon",
+            "image_type": "machine",
+            "imds_support": "",
+            "include_deprecated": false,
+            "kernel_id": "",
+            "last_launched_time": "",
+            "most_recent": true,
+            "name": "amzn2-ami-kernel-5.10-hvm-2.0.20250605.0-x86_64-gp2",
+            "name_regex": null,
+            "owner_id": "137112412989",
+            "owners": [
+              "self",
+              "amazon"
+            ],
+            "platform": "",
+            "platform_details": "Linux/UNIX",
+            "product_codes": [],
+            "public": true,
+            "ramdisk_id": "",
+            "root_device_name": "/dev/xvda",
+            "root_device_type": "ebs",
+            "root_snapshot_id": "snap-0b15c1291cc7eb53c",
+            "sriov_net_support": "simple",
+            "state": "available",
+            "state_reason": {
+              "code": "UNSET",
+              "message": "UNSET"
+            },
+            "tags": {},
+            "timeouts": null,
+            "tpm_support": "",
+            "uefi_data": null,
+            "usage_operation": "RunInstances",
+            "virtualization_type": "hvm"
+          },
+          "sensitive_attributes": []
+        }
+      ]
+    },
+    {
+      "module": "module.spot_instance",
+      "mode": "managed",
+      "type": "aws_ebs_volume",
+      "name": "spot-db-volume",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:ec2:ap-northeast-1:058898200941:volume/vol-0a398ba45f5653d30",
+            "availability_zone": "ap-northeast-1c",
+            "create_time": "2025-06-10T16:56:45Z",
+            "encrypted": false,
+            "final_snapshot": false,
+            "id": "vol-0a398ba45f5653d30",
+            "iops": 3000,
+            "kms_key_id": "",
+            "multi_attach_enabled": false,
+            "outpost_arn": "",
+            "size": 20,
+            "snapshot_id": "",
+            "tags": {
+              "Env": "dev",
+              "Name": "spot-ondemand-failover-dev-spot-db-volume",
+              "Project": "spot-ondemand-failover"
+            },
+            "tags_all": {
+              "Env": "dev",
+              "Name": "spot-ondemand-failover-dev-spot-db-volume",
+              "Project": "spot-ondemand-failover"
+            },
+            "throughput": 125,
+            "timeouts": null,
+            "type": "gp3"
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjozMDAwMDAwMDAwMDAsImRlbGV0ZSI6NjAwMDAwMDAwMDAwLCJ1cGRhdGUiOjMwMDAwMDAwMDAwMH19"
+        }
+      ]
+    },
+    {
+      "module": "module.spot_instance",
+      "mode": "managed",
+      "type": "aws_ec2_tag",
+      "name": "spot_db_tag",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "i-01a966ab3f412d288,Name",
+            "key": "Name",
+            "resource_id": "i-01a966ab3f412d288",
+            "value": "SpotTest"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "module.network.aws_subnet.public_subnet_1",
+            "module.network.aws_vpc.vpc",
+            "module.spot_instance.aws_iam_instance_profile.ec2_ebs_profile",
+            "module.spot_instance.aws_iam_role.ec2_ebs_role",
+            "module.spot_instance.aws_key_pair.keypair",
+            "module.spot_instance.aws_security_group.db_sg",
+            "module.spot_instance.aws_spot_instance_request.spot-db"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.spot_instance",
+      "mode": "managed",
+      "type": "aws_iam_instance_profile",
+      "name": "ec2_ebs_profile",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:iam::058898200941:instance-profile/spot-ondemand-failover-dev-ec2-ebs-profile",
+            "create_date": "2025-06-10T16:56:46Z",
+            "id": "spot-ondemand-failover-dev-ec2-ebs-profile",
+            "name": "spot-ondemand-failover-dev-ec2-ebs-profile",
+            "name_prefix": "",
+            "path": "/",
+            "role": "spot-ondemand-failover-dev-ec2-ebs-role",
+            "tags": {},
+            "tags_all": {},
+            "unique_id": "AIPAQ3NU3HFW37TJ4XLAL"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "module.spot_instance.aws_iam_role.ec2_ebs_role"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.spot_instance",
+      "mode": "managed",
+      "type": "aws_iam_role",
+      "name": "ec2_ebs_role",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "arn": "arn:aws:iam::058898200941:role/spot-ondemand-failover-dev-ec2-ebs-role",
+            "assume_role_policy": "{\"Statement\":[{\"Action\":\"sts:AssumeRole\",\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"}}],\"Version\":\"2012-10-17\"}",
+            "create_date": "2025-06-10T16:56:45Z",
+            "description": "",
+            "force_detach_policies": false,
+            "id": "spot-ondemand-failover-dev-ec2-ebs-role",
+            "inline_policy": [
+              {
+                "name": "spot-ondemand-failover-dev-ec2-ebs-policy",
+                "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":[\"ec2:DetachVolume\",\"ec2:AttachVolume\",\"ec2:DescribeVolumes\",\"ec2:DescribeVolumeStatus\"],\"Effect\":\"Allow\",\"Resource\":\"*\"}]}"
+              }
+            ],
+            "managed_policy_arns": [],
+            "max_session_duration": 3600,
+            "name": "spot-ondemand-failover-dev-ec2-ebs-role",
+            "name_prefix": "",
+            "path": "/",
+            "permissions_boundary": "",
+            "tags": {},
+            "tags_all": {},
+            "unique_id": "AROAQ3NU3HFW5OVZQZNNY"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA=="
+        }
+      ]
+    },
+    {
+      "module": "module.spot_instance",
+      "mode": "managed",
+      "type": "aws_iam_role_policy",
+      "name": "ec2_ebs_policy",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "id": "spot-ondemand-failover-dev-ec2-ebs-role:spot-ondemand-failover-dev-ec2-ebs-policy",
+            "name": "spot-ondemand-failover-dev-ec2-ebs-policy",
+            "name_prefix": "",
+            "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Action\":[\"ec2:DetachVolume\",\"ec2:AttachVolume\",\"ec2:DescribeVolumes\",\"ec2:DescribeVolumeStatus\"],\"Effect\":\"Allow\",\"Resource\":\"*\"}]}",
+            "role": "spot-ondemand-failover-dev-ec2-ebs-role"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "module.spot_instance.aws_iam_role.ec2_ebs_role"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.spot_instance",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "ondemand-db",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "ami": "ami-027fff96cc515f7bc",
+            "arn": "arn:aws:ec2:ap-northeast-1:058898200941:instance/i-0908912c2020945c4",
+            "associate_public_ip_address": true,
+            "availability_zone": "ap-northeast-1c",
+            "capacity_reservation_specification": [
+              {
+                "capacity_reservation_preference": "open",
+                "capacity_reservation_target": []
+              }
+            ],
+            "cpu_core_count": 1,
+            "cpu_options": [
+              {
+                "amd_sev_snp": "",
+                "core_count": 1,
+                "threads_per_core": 1
+              }
+            ],
+            "cpu_threads_per_core": 1,
+            "credit_specification": [
+              {
+                "cpu_credits": "standard"
+              }
+            ],
+            "disable_api_stop": false,
+            "disable_api_termination": false,
+            "ebs_block_device": [],
+            "ebs_optimized": false,
+            "enable_primary_ipv6": null,
+            "enclave_options": [
+              {
+                "enabled": false
+              }
+            ],
+            "ephemeral_block_device": [],
+            "get_password_data": false,
+            "hibernation": false,
+            "host_id": "",
+            "host_resource_group_arn": null,
+            "iam_instance_profile": "spot-ondemand-failover-dev-ec2-ebs-profile",
+            "id": "i-0908912c2020945c4",
+            "instance_initiated_shutdown_behavior": "stop",
+            "instance_lifecycle": "",
+            "instance_market_options": [],
+            "instance_state": "running",
+            "instance_type": "t2.micro",
+            "ipv6_address_count": 0,
+            "ipv6_addresses": [],
+            "key_name": "spot-ondemand-failover-dev-keypair",
+            "launch_template": [],
+            "maintenance_options": [
+              {
+                "auto_recovery": "default"
+              }
+            ],
+            "metadata_options": [
+              {
+                "http_endpoint": "enabled",
+                "http_protocol_ipv6": "disabled",
+                "http_put_response_hop_limit": 2,
+                "http_tokens": "required",
+                "instance_metadata_tags": "disabled"
+              }
+            ],
+            "monitoring": false,
+            "network_interface": [],
+            "outpost_arn": "",
+            "password_data": "",
+            "placement_group": "",
+            "placement_partition_number": 0,
+            "primary_network_interface_id": "eni-00dbd5d1e06a45ed9",
+            "private_dns": "ip-192-168-1-240.ap-northeast-1.compute.internal",
+            "private_dns_name_options": [
+              {
+                "enable_resource_name_dns_a_record": false,
+                "enable_resource_name_dns_aaaa_record": false,
+                "hostname_type": "ip-name"
+              }
+            ],
+            "private_ip": "192.168.1.240",
+            "public_dns": "ec2-3-112-49-95.ap-northeast-1.compute.amazonaws.com",
+            "public_ip": "3.112.49.95",
+            "root_block_device": [
+              {
+                "delete_on_termination": true,
+                "device_name": "/dev/xvda",
+                "encrypted": false,
+                "iops": 3000,
+                "kms_key_id": "",
+                "tags": {},
+                "tags_all": {},
+                "throughput": 125,
+                "volume_id": "vol-0c1b4d87822c44666",
+                "volume_size": 8,
+                "volume_type": "gp3"
+              }
+            ],
+            "secondary_private_ips": [],
+            "security_groups": [],
+            "source_dest_check": true,
+            "spot_instance_request_id": "",
+            "subnet_id": "subnet-014f1d8044ce3979f",
+            "tags": {
+              "Env": "dev",
+              "Name": "spot-ondemand-failover-dev-ondemand-db",
+              "Project": "spot-ondemand-failover",
+              "Type": "ondemand"
+            },
+            "tags_all": {
+              "Env": "dev",
+              "Name": "spot-ondemand-failover-dev-ondemand-db",
+              "Project": "spot-ondemand-failover",
+              "Type": "ondemand"
+            },
+            "tenancy": "default",
+            "timeouts": null,
+            "user_data": "a25d0a1135a48694640196bee52a6f443de50781",
+            "user_data_base64": null,
+            "user_data_replace_on_change": false,
+            "volume_tags": null,
+            "vpc_security_group_ids": [
+              "sg-094806eaa8b2fa266"
+            ]
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6MTIwMDAwMDAwMDAwMCwicmVhZCI6OTAwMDAwMDAwMDAwLCJ1cGRhdGUiOjYwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMSJ9",
+          "dependencies": [
+            "module.network.aws_subnet.public_subnet_1",
+            "module.network.aws_vpc.vpc",
+            "module.spot_instance.aws_iam_instance_profile.ec2_ebs_profile",
+            "module.spot_instance.aws_iam_role.ec2_ebs_role",
+            "module.spot_instance.aws_key_pair.keypair",
+            "module.spot_instance.aws_security_group.db_sg"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.spot_instance",
+      "mode": "managed",
+      "type": "aws_key_pair",
+      "name": "keypair",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "arn": "arn:aws:ec2:ap-northeast-1:058898200941:key-pair/spot-ondemand-failover-dev-keypair",
+            "fingerprint": "75:88:b5:8c:fd:96:bb:6f:37:1a:2c:d4:dd:92:db:dd",
+            "id": "spot-ondemand-failover-dev-keypair",
+            "key_name": "spot-ondemand-failover-dev-keypair",
+            "key_name_prefix": "",
+            "key_pair_id": "key-09e3be7b947d4f94b",
+            "key_type": "rsa",
+            "public_key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDSON7bo8vQSsxw1EvAqmVVBC4ZFJCHqCDRsmO8UiVJyhxgRQ79B112MRKjw9SUqoTNMUB/gL0aVuxHQz9GVFwNN335kXLAcSLKbyQq4/eet5An5HHXFyYz/tWmTGn0O/0A3E5BkKLc3LVsTSM2PBBXhbWSnZEOgB+CTlX9+TP8X54oIqenXs1h36CZxvBCuyzJ65+sdaIdzyadTiM0r9HPQOL1jOg+2wc/5Px0seHNTPUY5qMts85gPbJogaHNzdshsulnTo7xxaZHV+SlqmSZlFkkIEMDYdUpJhVYT/23slFsEoi5hPe5JLX5bami6vE+ChS/FjXjR4bBh5F1/q3Z naoki@surface-naoki",
+            "tags": {
+              "Env": "dev",
+              "Name": "spot-ondemand-failover-dev-keypair",
+              "Project": "spot-ondemand-failover"
+            },
+            "tags_all": {
+              "Env": "dev",
+              "Name": "spot-ondemand-failover-dev-keypair",
+              "Project": "spot-ondemand-failover"
+            }
+          },
+          "sensitive_attributes": [],
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjEifQ=="
+        }
+      ]
+    },
+    {
+      "module": "module.spot_instance",
+      "mode": "managed",
+      "type": "aws_security_group",
+      "name": "db_sg",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 1,
+          "attributes": {
+            "arn": "arn:aws:ec2:ap-northeast-1:058898200941:security-group/sg-094806eaa8b2fa266",
+            "description": "Security group for DB server",
+            "egress": [
+              {
+                "cidr_blocks": [
+                  "0.0.0.0/0"
+                ],
+                "description": "",
+                "from_port": 0,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "-1",
+                "security_groups": [],
+                "self": false,
+                "to_port": 0
+              }
+            ],
+            "id": "sg-094806eaa8b2fa266",
+            "ingress": [
+              {
+                "cidr_blocks": [
+                  "0.0.0.0/0"
+                ],
+                "description": "",
+                "from_port": 22,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "tcp",
+                "security_groups": [],
+                "self": false,
+                "to_port": 22
+              },
+              {
+                "cidr_blocks": [
+                  "10.0.0.0/16"
+                ],
+                "description": "",
+                "from_port": 3306,
+                "ipv6_cidr_blocks": [],
+                "prefix_list_ids": [],
+                "protocol": "tcp",
+                "security_groups": [],
+                "self": false,
+                "to_port": 3306
+              }
+            ],
+            "name": "spot-ondemand-failover-dev-db-sg",
+            "name_prefix": "",
+            "owner_id": "058898200941",
+            "revoke_rules_on_delete": false,
+            "tags": {},
+            "tags_all": {},
+            "timeouts": null,
+            "vpc_id": "vpc-0b2dc244e68af39f1"
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6OTAwMDAwMDAwMDAwfSwic2NoZW1hX3ZlcnNpb24iOiIxIn0=",
+          "dependencies": [
+            "module.network.aws_vpc.vpc"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.spot_instance",
+      "mode": "managed",
+      "type": "aws_spot_instance_request",
+      "name": "spot-db",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "ami": "ami-027fff96cc515f7bc",
+            "arn": null,
+            "associate_public_ip_address": true,
+            "availability_zone": "ap-northeast-1c",
+            "block_duration_minutes": 0,
+            "capacity_reservation_specification": null,
+            "cpu_core_count": null,
+            "cpu_options": null,
+            "cpu_threads_per_core": null,
+            "credit_specification": [],
+            "disable_api_stop": null,
+            "disable_api_termination": null,
+            "ebs_block_device": [],
+            "ebs_optimized": false,
+            "enable_primary_ipv6": null,
+            "enclave_options": null,
+            "ephemeral_block_device": [],
+            "get_password_data": false,
+            "hibernation": null,
+            "host_id": null,
+            "host_resource_group_arn": null,
+            "iam_instance_profile": "spot-ondemand-failover-dev-ec2-ebs-profile",
+            "id": "sir-ze7f4w8g",
+            "instance_initiated_shutdown_behavior": null,
+            "instance_interruption_behavior": "stop",
+            "instance_state": null,
+            "instance_type": "t2.micro",
+            "ipv6_address_count": 0,
+            "ipv6_addresses": [],
+            "key_name": "spot-ondemand-failover-dev-keypair",
+            "launch_group": "",
+            "launch_template": [],
+            "maintenance_options": null,
+            "metadata_options": null,
+            "monitoring": null,
+            "network_interface": [],
+            "outpost_arn": null,
+            "password_data": "",
+            "placement_group": null,
+            "placement_partition_number": null,
+            "primary_network_interface_id": "eni-06b6cbe2a93e7ae4b",
+            "private_dns": "ip-192-168-1-147.ap-northeast-1.compute.internal",
+            "private_dns_name_options": null,
+            "private_ip": "192.168.1.147",
+            "public_dns": "ec2-35-78-123-172.ap-northeast-1.compute.amazonaws.com",
+            "public_ip": "35.78.123.172",
+            "root_block_device": [
+              {
+                "delete_on_termination": true,
+                "device_name": "/dev/xvda",
+                "encrypted": false,
+                "iops": 3000,
+                "kms_key_id": "",
+                "tags": {},
+                "tags_all": {},
+                "throughput": 125,
+                "volume_id": "vol-0c608001126153cd4",
+                "volume_size": 8,
+                "volume_type": "gp3"
+              }
+            ],
+            "secondary_private_ips": [],
+            "security_groups": [],
+            "source_dest_check": true,
+            "spot_bid_status": "fulfilled",
+            "spot_instance_id": "i-01a966ab3f412d288",
+            "spot_price": "0.015200",
+            "spot_request_state": "active",
+            "spot_type": "persistent",
+            "subnet_id": "subnet-014f1d8044ce3979f",
+            "tags": {
+              "Env": "dev",
+              "Name": "spot-ondemand-failover-dev-spot-db",
+              "Project": "spot-ondemand-failover",
+              "Type": "spot"
+            },
+            "tags_all": {
+              "Env": "dev",
+              "Name": "spot-ondemand-failover-dev-spot-db",
+              "Project": "spot-ondemand-failover",
+              "Type": "spot"
+            },
+            "tenancy": null,
+            "timeouts": null,
+            "user_data": "683568ab4c44859628bb2f812c3e7d7dca342328",
+            "user_data_base64": null,
+            "user_data_replace_on_change": false,
+            "valid_from": "0001-01-01T00:00:00Z",
+            "valid_until": "0001-01-01T00:00:00Z",
+            "volume_tags": null,
+            "vpc_security_group_ids": [
+              "sg-094806eaa8b2fa266"
+            ],
+            "wait_for_fulfillment": true
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6MTIwMDAwMDAwMDAwMCwicmVhZCI6OTAwMDAwMDAwMDAwfX0=",
+          "dependencies": [
+            "module.network.aws_subnet.public_subnet_1",
+            "module.network.aws_vpc.vpc",
+            "module.spot_instance.aws_iam_instance_profile.ec2_ebs_profile",
+            "module.spot_instance.aws_iam_role.ec2_ebs_role",
+            "module.spot_instance.aws_key_pair.keypair",
+            "module.spot_instance.aws_security_group.db_sg"
+          ]
+        }
+      ]
+    },
+    {
+      "module": "module.spot_instance",
+      "mode": "managed",
+      "type": "aws_volume_attachment",
+      "name": "spot-db-volume-attachment",
+      "provider": "provider[\"registry.terraform.io/hashicorp/aws\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "device_name": "/dev/xvdf",
+            "force_detach": null,
+            "id": "vai-4119754185",
+            "instance_id": "i-01a966ab3f412d288",
+            "skip_destroy": null,
+            "stop_instance_before_detaching": null,
+            "timeouts": null,
+            "volume_id": "vol-0a398ba45f5653d30"
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjozMDAwMDAwMDAwMDAsImRlbGV0ZSI6MzAwMDAwMDAwMDAwfX0=",
+          "dependencies": [
+            "module.network.aws_subnet.public_subnet_1",
+            "module.network.aws_vpc.vpc",
+            "module.spot_instance.aws_ebs_volume.spot-db-volume",
+            "module.spot_instance.aws_iam_instance_profile.ec2_ebs_profile",
+            "module.spot_instance.aws_iam_role.ec2_ebs_role",
+            "module.spot_instance.aws_key_pair.keypair",
+            "module.spot_instance.aws_security_group.db_sg",
+            "module.spot_instance.aws_spot_instance_request.spot-db"
+          ]
+        }
+      ]
+    }
+  ],
+  "check_results": null
+}
