@@ -10,3 +10,5 @@ crash.log
 04_spot_ondemand_failover/lambda_source/build
 04_spot_ondemand_failover/scripts/build
 04_spot_ondemand_failover/build
+terraform.tfstate.*
+!terraform.tfstate
