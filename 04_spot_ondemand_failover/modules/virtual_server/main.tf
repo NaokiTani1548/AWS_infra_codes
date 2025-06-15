@@ -47,6 +47,20 @@ resource "aws_spot_instance_request" "spot-db" {
             # エラーが発生したら即座に終了
             set -e
 
+            # /dev/xvdf が見えるまで最大60秒待機
+            for i in {1..60}; do
+                if [ -b /dev/xvdf ]; then
+                    echo "/dev/xvdf is available"
+                    break
+                fi
+                echo "Waiting for /dev/xvdf to be attached..."
+                sleep 1
+                if [ $i -eq 60 ]; then
+                    echo "/dev/xvdf did not appear in time"
+                    exit 1
+                fi
+            done
+
             # /dev/xvdf がフォーマットされていなければ初期化
             if ! blkid /dev/xvdf; then
                 mkfs -t xfs /dev/xvdf

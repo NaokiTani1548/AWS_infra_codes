@@ -22,6 +22,7 @@ $ terraform state rm module.spot_instance.aws_ec2_tag.spot_db_tag
 
 
 ####
+$ ssh -i ./../../key/spot-db-test.pem ec2-user@X.X.X.X
 $ sudo systemctl start mysqld
 $ sudo systemctl status mysqld
 # 初期パスワード確認

@@ -27,3 +27,5 @@ wUpoz1p+VdZBDRgWtN6UO75pYAF0PFJoJ5v+/PGOXdRtrmWs4mXRURhTjNb4ZNcJx29adJ
 /tQlEnjCGlfd9VNFAAAAE25hb2tpQHN1cmZhY2UtbmFva2kBAgMEBQYH
 -----END OPENSSH PRIVATE KEY-----
 EOT
+
+mysql_root_password = "Hitandrun48."

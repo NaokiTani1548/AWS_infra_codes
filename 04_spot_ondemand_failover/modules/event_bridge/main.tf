@@ -32,7 +32,7 @@ resource "aws_lambda_function" "ebs_failover" {
   s3_key    = var.s3_key
   handler       = "ebs_failover.lambda_handler"
   runtime       = "python3.9"
-  timeout       = 60
+  timeout       = 120
   layers = [ "arn:aws:lambda:ap-northeast-1:058898200941:layer:paramiko-layer:5" ]
 
   environment {
