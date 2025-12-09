@@ -1,5 +1,63 @@
-# スポットインスタンス中断実行方法(envs/devで実行)
-1. インフラ構築
+# DB on Spot 起動方法～停止テスト
+
+## 要求環境
+
+## 実行前準備
+### ssm_parameterの設定
+- ssm_parameterを設定するために04_2_ssm_parameterに移動し、 以下を実行
+```
+terraform init
+terraform apply
+```
+### lambdaコードの圧縮
+- 04_spot_ondemand_failover/lambda_source/へ移動  ebs_failover.pyをzip化(以下を実行)
+```
+zip ebs_failover.zip ebs_failover.py
+```
+
+### 依存関係の作成、アップロード
+- 実行に必要な依存関係を作成しアップロード
+1. docker内で依存関係作成
+```
+# docker コンテナ起動
+docker run -it --rm amazonlinux:2023 bash
+
+# 中に入り以下を順に実行
+## update
+dnf update -y
+## python3.9とpipなどをインストール
+dnf install -y python3 python3-pip gcc libffi-devel openssl-devel make zip
+## バージョン確認(3.9.x のはず)
+python3 --version 
+## レイヤー用ディレクトリ作成
+mkdir /layer
+cd /layer
+## ライブラリをレイヤー用にインストール
+python3 -m pip install --user --upgrade pip setuptools wheel
+dnf install -y python3-devel
+pip3 install paramiko==3.2.0 pycrypto==2.6.1 cryptography==3.4.8 bcrypt==3.2.2 -t python/
+## zip化
+zip -r9 paramiko-layer.zip python/
+```
+2. 別ターミナルで作成したレイヤーをコピーしアップロード
+```
+# コンテナIDを確認
+docker ps
+# コピー
+docker cp <container_id>:/layer/paramiko-layer.zip .
+# アップロード
+aws lambda publish-layer-version \
+  --layer-name paramiko-layer \
+  --description "paramiko layer" \
+  --zip-file fileb://paramiko-layer.zip \
+  --compatible-runtimes python3.9 python3.10 python3.11 \
+  --region ap-northeast-1
+```
+
+## 実行方法
+
+### スポットインスタンス中断実行方法(04_spot_ondemand_failover/envs/dev下で実行)
+1. インフラ構築 (初回はterraform initも実行)
 ```
 $ terraform apply -auto-approve
 ```
@@ -17,19 +75,19 @@ $ aws fis start-experiment --experiment-template-id EXTB5WNxWX77JhBcU
 $ aws fis get-experiment --id <experiment-id>
 ```
 
-# リソース削除/更新　-->　tagをterraform 管理から外す
-$ terraform state rm module.spot_instance.aws_ec2_tag.spot_db_tag
+### EC2内での操作
+```
+# EC2内へ接続(マネジメントコンソールで作成したパブリックIPを指定) 
+ssh -i ./../../key/spot-db-test.pem ec2-user@X.X.X.X
 
-
-####
-$ ssh -i ./../../key/spot-db-test.pem ec2-user@X.X.X.X
-$ sudo systemctl start mysqld
-$ sudo systemctl status mysqld
+# mysqlの起動、確認
+sudo systemctl start mysqld
+sudo systemctl status mysqld
 # 初期パスワード確認
 $ sudo grep 'temporary password' /var/log/mysqld.log
-### 接続
+# MySQL接続
 $ sudo mysql -u root -p
-### パスワード変更（初期）
+# パスワード変更（初期）
 $ ALTER USER 'root'@'localhost' IDENTIFIED BY 'Hitandrun48.';
 # データ挿入
 $ SHOW DATABASES;
@@ -41,35 +99,16 @@ $ CREATE TABLE member (
 );
 $ INSERT INTO member (name) VALUES ("Yoshida"),("Tani");
 $ select * from member;
+```
+
+## リソース削除/更新　-->　S3のリソースをマネジメントコンソールから削除/tagをterraform 管理から外す
+```
+$ terraform state rm module.spot_instance.aws_ec2_tag.spot_db_tag
+
+# 削除ならdestory 更新ならapply
+$ terraform destroy -auto-approve
+```
 
 
 
-# lambdaコード
-$ zip ebs_failover.zip ebs_failover.py
 
-# 依存関係
-docker run -it --rm amazonlinux:2023 bash
-# update
-dnf update -y
-# python3.9とpipなどをインストール
-dnf install -y python3 python3-pip gcc libffi-devel openssl-devel make zip
-# バージョン確認
-python3 --version  # 3.9.x のはず
-mkdir /layer
-cd /layer
-python3 -m pip install --user --upgrade pip setuptools wheel
-# ライブラリをレイヤー用にインストール
-pip3 install paramiko==3.2.0 pycrypto==2.6.1 cryptography==3.4.8 bcrypt==3.2.2 -t python/
-# zip化
-zip -r9 paramiko-layer.zip python/
-exit
-
-docker ps
-docker cp <container_id>:/layer/paramiko-layer.zip .
-
-aws lambda publish-layer-version \
-  --layer-name paramiko-layer \
-  --description "paramiko layer" \
-  --zip-file fileb://paramiko-layer.zip \
-  --compatible-runtimes python3.9 python3.10 python3.11 \
-  --region ap-northeast-1
