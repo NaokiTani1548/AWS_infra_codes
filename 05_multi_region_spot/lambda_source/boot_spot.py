@@ -23,14 +23,19 @@ def lambda_handler(event, context):
                 "InstanceInterruptionBehavior": "terminate"
             }
         },
+        TagSpecifications=[
+            {
+                'ResourceType': 'instance',
+                'Tags': [
+                    {'Key': 'Name', 'Value': 'auto-boot-spot'},
+                ]
+            }
+        ],
         KeyName=keypair_name,
         SecurityGroupIds=[security_groupe_id],
         SubnetId=subnet_id,
         UserData="""#!/bin/bash
         sudo yum update -y
-        sudo yum install -y mysql-server
-        sudo systemctl enable mysqld
-        sudo systemctl start mysqld
         """
     )
 

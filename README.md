@@ -1,1 +1,43 @@
 # AWS_infra_codes
+## コマンド
+
+### terraform 関連
+
+- 初期化
+
+```bash
+$ terraform init
+```
+
+- 変更の適用
+
+```bash
+$ terraform apply (-auto-approve)(-var <KEY>=<VALUE>)(-var-file <VAR_FILE>)
+```
+
+- 起動したインスタンスの削除
+
+```bash
+$ terraform destroy (-auto-approve)
+```
+
+- 変更の確認
+
+```bash
+$ terraform plan (-var <KEY>=<VALUE>)(-var-file <VAR_FILE>)
+```
+
+- フォーマッター
+
+```bash
+$ terraform fmt
+```
+### 踏み台サーバ経由MySQL接続
+- SSH接続
+```bash
+$ ssh -i .\tmp-tastylog-dev-keypair.pem ec2-user@<IPアドレス>
+```
+- MySQL接続
+```bash
+$  mysql -h"${MYSQL_HOST}" -P"${MYSQL_PORT}" -u"${MYSQL_USERNAME}" -p"${MYSQL_PASSWORD}"
+```
