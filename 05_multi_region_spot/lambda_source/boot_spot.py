@@ -104,6 +104,7 @@ def launch_spot_instance():
     keypair_name = keypair_map[best_region["region"]]
     sg_map = json.loads(os.environ["SECURITY_GROUP_MAP"])
     sg_id = sg_map[best_region["region"]].split(",")
+    seed_s3_path = os.environ["S3_DATA_PATH"]
 
     ec2 = boto3.client("ec2", region_name=best_region["region"])
 
@@ -124,8 +125,225 @@ def launch_spot_instance():
             KeyName=keypair_name,
             SubnetId=subnet_id,
             SecurityGroupIds=sg_id,
+            IamInstanceProfile={
+                "Name": "ec2-s3-full-role"
+            },
             UserData="""#!/bin/bash
-                sudo yum update -y
+                set -euxo pipefail
+                exec > >(tee /var/log/user-data-debug.log) 2>&1
+
+                sudo dnf update -y
+                sudo dnf install -y awscli gzip
+                sudo dnf remove -y mariadb-*
+
+                sudo dnf install -y https://dev.mysql.com/get/mysql80-community-release-el9-1.noarch.rpm
+                wget https://repo.mysql.com/RPM-GPG-KEY-mysql-2023
+                sudo rpm --import RPM-GPG-KEY-mysql-2023
+
+                sudo dnf --enablerepo=mysql80-community install -y mysql-community-server mysql-community-devel
+
+                sudo systemctl stop mysqld
+
+                ########################################
+                # データディレクトリ確認（触らない）
+                ########################################
+                ls -ld /var/lib/mysql || true
+
+                ########################################
+                # SELinux（AL2023 は基本 permissive だが安全側）
+                ########################################
+                if command -v getenforce >/dev/null && [ "$(getenforce)" != "Disabled" ]; then
+                dnf install -y policycoreutils-python-utils
+                fi
+
+                ########################################
+                # MySQL 初期化（初回のみ）
+                ########################################
+                if [ ! -d /var/lib/mysql/mysql ]; then
+                echo "Initializing MySQL data directory"
+                mysqld --initialize --user=mysql
+                fi
+
+########################################
+# local_infile 有効化
+########################################
+cat >/etc/my.cnf <<'EOF'
+[mysqld]
+local_infile=1
+secure_file_priv=""
+
+[mysql]
+local_infile=1
+EOF
+
+                ########################################
+                # systemd に完全に任せて起動
+                ########################################
+                systemctl enable mysqld
+                systemctl restart mysqld
+
+                ########################################
+                # 起動待ち
+                ########################################
+                for i in {1..30}; do
+                if systemctl is-active --quiet mysqld; then
+                    echo "MySQL started successfully"
+                    break
+                fi
+                sleep 1
+                done
+
+                ########################################
+                # 起動確認
+                ########################################
+                if ! systemctl is-active --quiet mysqld; then
+                echo "MySQL failed to start"
+                journalctl -u mysqld --no-pager -n 100
+                exit 1
+                fi
+
+                ########################################
+                # 完了ログ
+                ########################################
+                echo "===== MySQL is running ====="
+                systemctl status mysqld --no-pager
+
+                ########################################
+                # S3 から CSV を取得して MySQL にロード
+                # （S3 を常に正とする）
+                ########################################
+
+                S3_CSV_PATH="s3://dev-multi-region-spot-data-source/data_source/employee_data.csv"
+                CSV_LOCAL_PATH="/var/tmp/seed.csv"
+
+                echo "===== Fetch CSV from S3 ====="
+                aws s3 cp "$S3_CSV_PATH" "$CSV_LOCAL_PATH"
+
+########################################
+# root パスワード固定（初回 or 未設定時）
+########################################
+MYSQL_ROOT_PASSWORD="Pass123!"
+DB_NAME="appdb"
+TABLE_NAME="employees"
+
+if ! mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "SELECT 1;" >/dev/null 2>&1; then
+  echo "===== Setting MySQL root password ====="
+
+  systemctl stop mysqld
+
+  mysqld --skip-grant-tables --skip-networking --user=mysql &
+  sleep 5
+
+  mysql <<EOF
+FLUSH PRIVILEGES;
+ALTER USER 'root'@'localhost'
+IDENTIFIED WITH mysql_native_password
+BY '${MYSQL_ROOT_PASSWORD}';
+FLUSH PRIVILEGES;
+EOF
+
+  pkill mysqld
+  sleep 3
+
+  systemctl start mysqld
+fi
+
+########################################
+# S3 から CSV 取得
+########################################
+echo "===== Fetch CSV from S3 ====="
+aws s3 cp "${S3_CSV_PATH}" "${CSV_LOCAL_PATH}"
+
+########################################
+# DB / Table 作成 & 再ロード（S3が正）
+########################################
+mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" <<EOF
+CREATE DATABASE IF NOT EXISTS ${DB_NAME};
+USE ${DB_NAME};
+
+CREATE TABLE IF NOT EXISTS ${TABLE_NAME} (
+  id INT,
+  name VARCHAR(100),
+  email VARCHAR(255)
+);
+
+TRUNCATE TABLE ${TABLE_NAME};
+EOF
+
+mysql --local-infile=1 -uroot -p"${MYSQL_ROOT_PASSWORD}" <<EOF
+USE ${DB_NAME};
+LOAD DATA LOCAL INFILE '${CSV_LOCAL_PATH}'
+INTO TABLE ${TABLE_NAME}
+FIELDS TERMINATED BY ','
+OPTIONALLY ENCLOSED BY '"'
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS;
+EOF
+
+########################################
+# 完了
+########################################
+echo "===== MySQL is ready ====="
+mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e \
+  "SELECT COUNT(*) AS rows_loaded FROM ${DB_NAME}.${TABLE_NAME};"
+
+########################################
+# Spot 中断検知セットアップ
+########################################
+
+cat <<'EOF' > /usr/local/bin/spot-interruption-handler.sh
+#!/bin/bash
+set -euo pipefail
+
+IMDS_URL="http://169.254.169.254/latest/meta-data/spot/instance-action"
+MYSQL_ROOT_PASSWORD="Pass123!"
+DB_NAME="appdb"
+S3_BUCKET="dev-multi-region-spot-data-source"
+
+while true; do
+  TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds:15")
+  HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "X-aws-ec2-metadata-token: $TOKEN" --connect-timeout 1 --max-time 2 http://169.254.169.254/latest/meta-data/spot/instance-action)
+  if [[ "$HTTP_CODE" == "200" ]]; then
+    logger -t spot-handler "Spot interruption detected"
+    TS=$(date +%Y%m%d-%H%M%S)
+    DUMP="/var/tmp/${DB_NAME}-${TS}.sql.gz"
+
+    logger -t spot-handler "MySQL dump started"
+    mysqldump -uroot -p"${MYSQL_ROOT_PASSWORD}" "${DB_NAME}" | gzip > "${DUMP}"
+    logger -t spot-handler "MySQL dump finished"
+    logger -t spot-handler "Uploading to S3"
+    aws s3 cp "${DUMP}" "s3://${S3_BUCKET}/mysql/"
+    logger -t spot-handler "Upload finished"
+    sleep 120
+    exit 0
+  fi
+  sleep 5
+done
+EOF
+
+chmod +x /usr/local/bin/spot-interruption-handler.sh
+
+echo "===== systemd ====="
+
+cat <<'EOF' > /etc/systemd/system/spot-interruption.service
+[Unit]
+Description=Spot Interruption Handler
+After=network-online.target mysqld.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/spot-interruption-handler.sh
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable spot-interruption.service
+systemctl start spot-interruption.service
+
             """,
             TagSpecifications=[
                 {

@@ -99,8 +99,8 @@ module "network_virginia" {
   cidr_vpc     = "10.3.0.0/16"
   cidr_public1 = "10.3.1.0/24"
   cidr_public2 = "10.3.2.0/24"
-  az_public1   = "us-east-1a"
-  az_public2   = "us-east-1b"
+  az_public1   = "us-east-1b"
+  az_public2   = "us-east-1c"
   env          = var.env
   project      = var.project
 }
@@ -232,6 +232,10 @@ module "lambda_source_s3" {
   bucket_name     = "${var.env}-${var.project}-lambda-source"
   object_key      = "lambda_source/boot_spot.zip"
   source_zip_path = "./../../lambda_source/boot_spot.zip"
+  bucket_data_name = "${var.env}-${var.project}-data-source"
+  data_object_key      = "data_source/employee_data.csv"
+  source_data_path = "./../../data_source/employee_data.csv"
+
   env          = var.env
   project      = var.project
 }
@@ -281,12 +285,17 @@ locals {
   }
 }
 
+locals {
+  s3_data_path = "s3://${module.lambda_source_s3.bucket_data_name}/${module.lambda_source_s3.data_object_key}"
+}
+
 module "event_bridge" {
   source = "../../modules/event_bridge"
   env = var.env
   project = var.project
   s3_bucket = module.lambda_source_s3.bucket_name
   s3_key = module.lambda_source_s3.object_key
+  s3_data_path = local.s3_data_path
   VPCID     = module.network_tokyo.VPCID
   public1ID = module.network_tokyo.public1ID 
   network_map = local.network_map

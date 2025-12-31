@@ -17,6 +17,7 @@ resource "aws_lambda_function" "boot_spot" {
         SUBNETID = var.public1ID
         NETWORK_MAP = jsonencode(var.network_map)
         SECURITY_GROUP_MAP = jsonencode(var.sg_map)
+        S3_DATA_PATH = var.s3_data_path
     }
   }
 
@@ -70,7 +71,11 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents",
-          "ssm:GetParameter"
+          "ssm:GetParameter",
+          "s3:GetObject",
+          "iam:PassRole",
+          "s3:PutObject",
+          "s3:PutObjectAcl"
         ]
         Resource = "*"
       },
@@ -102,4 +107,46 @@ resource "aws_iam_role_policy" "lambda_policy" {
       }
     ]
   })
+}
+
+# --------------------------------
+# CloudWatch Log
+# --------------------------------
+
+resource "aws_cloudwatch_log_group" "spot_log_group" {
+  name              = "/fis/logs/"
+  retention_in_days = 1
+}
+# --------------------------------
+# FIS　Role
+# --------------------------------
+
+resource "aws_iam_role" "fis_role" {
+    name = "${var.project}-${var.env}-fis-role"
+    assume_role_policy = <<EOF
+{
+"Version": "2012-10-17",
+"Statement": [
+    {
+    "Effect": "Allow",
+    "Principal": {
+        "Service": "fis.amazonaws.com"
+    },
+    "Action": "sts:AssumeRole"
+    }
+]
+}
+EOF
+}
+
+# EC2　アクセス権限付与
+resource "aws_iam_role_policy_attachment" "FIS-policy-attachment" {
+  role       = aws_iam_role.fis_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSFaultInjectionSimulatorEC2Access"
+}
+
+# CloudWatch Logs　アクセス権限付与
+resource "aws_iam_role_policy_attachment" "FIS-Logs-policy-attachment" {
+  role       = aws_iam_role.fis_role.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
 }

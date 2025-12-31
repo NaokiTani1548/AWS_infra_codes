@@ -31,3 +31,47 @@ aws lambda publish-layer-version \
   --compatible-runtimes python3.9 python3.10 python3.11 \
   --region ap-northeast-1
 ```
+
+
+## ssh接続
+ssh -i ~/.ssh/spot-db-test.pem ec2-user@<public-IP>
+
+### mysqlの起動、確認
+sudo systemctl start mysqld
+sudo systemctl status mysqld
+### 初期パスワード確認
+```
+$ sudo grep 'temporary password' /var/log/mysqld.log
+# MySQL接続
+$ sudo mysql -u root -p
+$ Pass123!
+$ use appdb;
+$ select * from employees;
+INSERT INTO employees (id, name, email) VALUES (3, "chao", "chao@example.com");
+```
+
+## 中断
+1.  実験テンプレートの構築
+```
+$ aws fis create-experiment-template --region ap-northeast-2 --cli-input-json file://template.json
+```
+2. 実験の実行
+```
+$ aws fis start-experiment --experiment-template-id EXT2ZaPZWL8ituj6
+$ aws fis start-experiment --region ap-northeast-2 --experiment-template-id EXT2ogaeJwL6dGAC
+$ aws fis start-experiment --region us-west-2 --experiment-template-id EXT3BeJR1aDmRfG4
+$ aws fis start-experiment --region us-east-1 --experiment-template-id EXT85Gc7qrwuu5MuA
+$ aws fis start-experiment --region eu-central-1 --experiment-template-id EXT4DHowXggtzc
+```
+
+3. 実行の確認
+```
+$ aws fis get-experiment --region ap-northeast-2 --id <experiment-id>
+```
+
+
+sudo cat /var/log/cloud-init-output.log
+
+systemctl status spot-interruption.service
+
+journalctl -t spot-handler --since "5 minutes ago"
