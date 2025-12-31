@@ -280,6 +280,19 @@ LINES TERMINATED BY '\n'
 IGNORE 1 ROWS;
 EOF
 
+BUCKET="dev-multi-region-spot-data-source"
+PREFIX="mysql/"
+MYSQL_ROOT_PASSWORD="Pass123!"
+DB_NAME="appdb"
+
+KEY=$(aws s3api list-objects-v2 \
+  --bucket "$BUCKET" \
+  --prefix "$PREFIX" \
+  --query 'Contents[?Size>`0`]|sort_by(@,&LastModified)[-1].Key' \
+  --output text)
+
+aws s3 cp "s3://${BUCKET}/${KEY}" - | gunzip -c | mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" "${DB_NAME}"
+
 ########################################
 # 完了
 ########################################
