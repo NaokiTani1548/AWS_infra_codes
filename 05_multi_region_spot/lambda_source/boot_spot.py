@@ -5,12 +5,15 @@ import time
 import random
 import logging
 import json
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 SOURCE_REGION = "ap-northeast-1"
 SOURCE_AMI_ID = "ami-09cd9fdbf26acc6b4"
+
+cloudwatch = boto3.client("cloudwatch")
 
 def get_spot_scores():
     """
@@ -232,7 +235,7 @@ if ! mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e "SELECT 1;" >/dev/null 2>&1; the
   systemctl stop mysqld
 
   mysqld --skip-grant-tables --skip-networking --user=mysql &
-  sleep 5
+  sleep 10
 
   mysql <<EOF
 FLUSH PRIVILEGES;
@@ -289,9 +292,14 @@ KEY=$(aws s3api list-objects-v2 \
   --bucket "$BUCKET" \
   --prefix "$PREFIX" \
   --query 'Contents[?Size>`0`]|sort_by(@,&LastModified)[-1].Key' \
-  --output text)
+  --output text || echo "")
 
-aws s3 cp "s3://${BUCKET}/${KEY}" - | gunzip -c | mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" "${DB_NAME}"
+if [ -n "$KEY" ]; then
+  echo "Found S3 object: $KEY. Proceeding with data import."
+  aws s3 cp "s3://${BUCKET}/${KEY}" - | gunzip -c | mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" "${DB_NAME}"
+else
+  echo "No valid S3 object found. Skipping data import."
+fi
 
 ########################################
 # 完了
@@ -299,6 +307,46 @@ aws s3 cp "s3://${BUCKET}/${KEY}" - | gunzip -c | mysql -uroot -p"${MYSQL_ROOT_P
 echo "===== MySQL is ready ====="
 mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e \
   "SELECT COUNT(*) AS rows_loaded FROM ${DB_NAME}.${TABLE_NAME};"
+
+LOG_GROUP_NAME="/aws/lambda/multi-region-spot-dev-boot-spot"
+LOG_STREAM_NAME="spot-instance-log-stream"
+REGION="ap-northeast-1"
+
+INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+TIMESTAMP=$(date +%s%3N)
+MESSAGE="userdata_completed instance_id=${INSTANCE_ID} time=$(date -Is)"
+
+# Log stream 作成（存在してもOK）
+aws logs create-log-stream \
+  --log-group-name "$LOG_GROUP_NAME" \
+  --log-stream-name "$LOG_STREAM_NAME" \
+  --region "$REGION" 2>/dev/null || true
+
+# SequenceToken 取得
+SEQUENCE_TOKEN=$(aws logs describe-log-streams \
+  --log-group-name "$LOG_GROUP_NAME" \
+  --log-stream-name-prefix "$LOG_STREAM_NAME" \
+  --region "$REGION" \
+  --query "logStreams[0].uploadSequenceToken" \
+  --output text)
+
+# JSON を安全に生成
+LOG_EVENT=$(printf '[{"timestamp":%s,"message":"%s"}]' "$TIMESTAMP" "$MESSAGE")
+
+if [ "$SEQUENCE_TOKEN" = "None" ] || [ -z "$SEQUENCE_TOKEN" ]; then
+  aws logs put-log-events \
+    --log-group-name "$LOG_GROUP_NAME" \
+    --log-stream-name "$LOG_STREAM_NAME" \
+    --region "$REGION" \
+    --log-events "$LOG_EVENT"
+else
+  aws logs put-log-events \
+    --log-group-name "$LOG_GROUP_NAME" \
+    --log-stream-name "$LOG_STREAM_NAME" \
+    --region "$REGION" \
+    --sequence-token "$SEQUENCE_TOKEN" \
+    --log-events "$LOG_EVENT"
+fi
 
 ########################################
 # Spot 中断検知セットアップ
@@ -382,4 +430,35 @@ systemctl start spot-interruption.service
 
 
 def lambda_handler(event, context):
+    interruption_time = event["time"]
+    instance_id = event["detail"]["instance-id"]
+
+    interruption_unix = int(
+        datetime.fromisoformat(
+            interruption_time.replace("Z", "+00:00")
+        ).timestamp()
+    )
+
+    # CloudWatch Metrics へ送信
+    cloudwatch.put_metric_data(
+        Namespace="SpotLifecycle",
+        MetricData=[
+            {
+                "MetricName": "SpotInterruptionTime",
+                "Dimensions": [
+                    {"Name": "InstanceId", "Value": instance_id}
+                ],
+                "Timestamp": datetime.now(timezone.utc),
+                "Value": interruption_unix,
+                "Unit": "Seconds"
+            }
+        ]
+    )
+
+    logger.info(json.dumps({
+        "event": "spot_interruption_detected",
+        "instance_id": instance_id,
+        "interruption_time": interruption_time,
+        "interruption_unix": interruption_unix
+    }))
     return launch_spot_instance()

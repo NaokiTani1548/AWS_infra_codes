@@ -75,3 +75,22 @@ sudo cat /var/log/cloud-init-output.log
 systemctl status spot-interruption.service
 
 journalctl -t spot-handler --since "5 minutes ago"
+
+{
+  "version": "0",
+  "id": "abcd1234-5678-90ab-cdef-EXAMPLE11111",
+  "detail-type": "EC2 Spot Instance Interruption Warning",
+  "source": "aws.ec2",
+  "account": "123456789012",
+  "time": "2025-12-31T07:15:00Z",
+  "region": "us-west-2",
+  "resources": [
+    "arn:aws:ec2:us-west-2:123456789012:instance/i-0abcd1234efgh5678"
+  ],
+  "detail": {
+    "instance-id": "i-0abcd1234efgh5678",
+    "instance-action": "terminate"
+  }
+}
+
+TZ=Asia/Tokyo date -d @176760699

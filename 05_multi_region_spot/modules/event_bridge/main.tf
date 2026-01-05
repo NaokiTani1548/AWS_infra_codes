@@ -136,11 +136,13 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents",
+          "logs:DescribeLogStreams",
           "ssm:GetParameter",
           "s3:GetObject",
           "iam:PassRole",
           "s3:PutObject",
-          "s3:PutObjectAcl"
+          "s3:PutObjectAcl",
+          "cloudwatch:PutMetricData"
         ]
         Resource = "*"
       },
@@ -242,4 +244,45 @@ resource "aws_iam_role_policy_attachment" "FIS-policy-attachment" {
 resource "aws_iam_role_policy_attachment" "FIS-Logs-policy-attachment" {
   role       = aws_iam_role.fis_role.name
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
+}
+
+# --------------------------------
+# SNS Topic
+# --------------------------------
+
+resource "aws_sns_topic" "topic" {
+  name       = "${var.project}-${var.env}-spot-interruption-topic"
+  fifo_topic = false
+}
+
+resource "aws_sns_topic_subscription" "topic_subscription" {
+  topic_arn = aws_sns_topic.topic.arn
+  protocol  = "email"
+  endpoint  = "cguh1095@mail4.doshisha.ac.jp"
+  confirmation_timeout_in_minutes = 5
+}
+
+resource "aws_sns_topic_policy" "policy" {
+  arn    = aws_sns_topic.topic.arn
+  policy = data.aws_iam_policy_document.sns_topic_policy.json
+}
+
+# EventBridgeからSNSへのアクセス許可
+data "aws_iam_policy_document" "sns_topic_policy" {
+  statement {
+    effect  = "Allow"
+    actions = ["SNS:Publish"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["events.amazonaws.com"]
+    }
+
+    resources = [aws_sns_topic.topic.arn]
+  }
+}
+
+resource "aws_cloudwatch_event_target" "sns" {
+  rule = aws_cloudwatch_event_rule.daily_boot_spot.name
+  arn  = aws_sns_topic.topic.arn
 }
