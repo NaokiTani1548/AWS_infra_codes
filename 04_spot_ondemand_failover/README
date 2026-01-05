@@ -63,7 +63,7 @@ $ terraform apply -auto-approve
 ```
 2.  実験テンプレートの構築
 ```
-$ aws fis create-experiment-template --cli-input-json file://template.json
+$ aws fis create-experiment-template --region <NEW_REGION> --cli-input-json file://template.json
 ```
 3. 実験の実行
 ```
@@ -109,6 +109,6 @@ $ terraform state rm module.spot_instance.aws_ec2_tag.spot_db_tag
 $ terraform destroy -auto-approve
 ```
 
-
+sudo cat /var/log/cloud-init-output.log
 
 

@@ -302,3 +302,53 @@ module "event_bridge" {
   sg_map = local.sg_map
   key_map = local.key_map
 }
+
+module "event_bridge_tokyo" {
+  source = "../../modules/event_bridge_all_region"
+  providers = {
+    aws = aws
+  }
+  eventbridge_local_role = module.event_bridge.eventbridge_local_role
+  env = var.env
+  project = var.project
+}
+
+module "event_bridge_korea" {
+  source = "../../modules/event_bridge_all_region"
+  providers = {
+    aws = aws.apne2
+  }
+  eventbridge_local_role = module.event_bridge.eventbridge_local_role
+  env = var.env
+  project = var.project
+}
+
+module "event_bridge_virginia" {
+  source = "../../modules/event_bridge_all_region"
+  providers = {
+    aws = aws.use1
+  }
+  eventbridge_local_role = module.event_bridge.eventbridge_local_role
+  env = var.env
+  project = var.project
+}
+
+module "event_bridge_oregon" {
+  source = "../../modules/event_bridge_all_region"
+  providers = {
+    aws = aws.usw2
+  }
+  eventbridge_local_role = module.event_bridge.eventbridge_local_role
+  env = var.env
+  project = var.project
+}
+
+module "event_bridge_frankfurt" {
+  source = "../../modules/event_bridge_all_region"
+  providers = {
+    aws = aws.euc1
+  }
+  eventbridge_local_role = module.event_bridge.eventbridge_local_role
+  env = var.env
+  project = var.project
+}

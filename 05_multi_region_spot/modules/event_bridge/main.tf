@@ -1,3 +1,68 @@
+resource "aws_cloudwatch_event_bus" "central" {
+  name = "central-spot-events"
+}
+
+resource "aws_cloudwatch_event_rule" "central_rule" {
+  name          = "spot-interruption-central"
+  event_bus_name = aws_cloudwatch_event_bus.central.name
+
+  event_pattern = jsonencode({
+    source      = ["aws.ec2"]
+    detail-type = ["EC2 Spot Instance Interruption Warning"]
+  })
+}
+
+resource "aws_cloudwatch_event_target" "central_lambda" {
+  rule          = aws_cloudwatch_event_rule.central_rule.name
+  event_bus_name = aws_cloudwatch_event_bus.central.name
+  arn           = aws_lambda_function.boot_spot.arn
+}
+
+resource "aws_lambda_permission" "allow_eventbridge_central" {
+  statement_id  = "AllowCentralEventBus"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.boot_spot.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.central_rule.arn
+}
+
+
+resource "aws_cloudwatch_event_rule" "daily_boot_spot" {
+  name        = "${var.project}-${var.env}-daily-boot-spot"
+  description = "Run boot_spot every day at 9:00 JST"
+
+  schedule_expression = "cron(0 0 * * ? *)"
+}
+
+resource "aws_cloudwatch_event_target" "daily_boot_spot_target" {
+  rule      = aws_cloudwatch_event_rule.daily_boot_spot.name
+  target_id = "DailyBootSpotLambda"
+  arn       = aws_lambda_function.boot_spot.arn
+}
+
+resource "aws_lambda_permission" "allow_eventbridge_daily" {
+  statement_id  = "AllowExecutionFromEventBridgeDaily"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.boot_spot.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.daily_boot_spot.arn
+}
+
+resource "aws_cloudwatch_event_bus_policy" "allow_put_from_regions" {
+  event_bus_name = aws_cloudwatch_event_bus.central.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Sid       = "AllowPutEventsFromSameAccount"
+      Effect    = "Allow"
+      Principal = { AWS = "*" }
+      Action    = "events:PutEvents"
+      Resource  = aws_cloudwatch_event_bus.central.arn
+    }]
+  })
+}
+
 # ---------------------------------------------
 # Lambda Function
 # ---------------------------------------------
@@ -106,6 +171,34 @@ resource "aws_iam_role_policy" "lambda_policy" {
         Resource = "*"
       }
     ]
+  })
+}
+
+resource "aws_iam_role" "eventbridge_putevents_local" {
+  name = "${var.env}-${var.project}-eventbridge-putevents-central"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "events.amazonaws.com"
+      }
+      Action = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "putevents_policy" {
+  role = aws_iam_role.eventbridge_putevents_local.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "events:PutEvents"
+      Resource = aws_cloudwatch_event_bus.central.arn
+    }]
   })
 }
 
