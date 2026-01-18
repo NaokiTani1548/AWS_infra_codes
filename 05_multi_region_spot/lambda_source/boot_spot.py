@@ -19,9 +19,9 @@ def get_spot_scores():
     """
     SPS（Spot Placement Score）を取得し、score の高い順に並べた結果を返す
     """
-    instance_types = ["t3.micro"]
+    instance_types = ["m6i.large"]
     target_capacity = 1
-    regions = ["ap-northeast-1","ap-northeast-2","us-west-2","us-east-1","eu-central-1"]
+    regions = ["ap-northeast-1","ap-southeast-1","us-west-2","us-east-1","eu-central-1","eu-west-1"]
     region_for_call = "ap-northeast-1"
 
     ec2 = boto3.client("ec2", region_name=region_for_call)
@@ -58,6 +58,8 @@ def get_spot_scores():
             break
 
     results.sort(key=lambda x: x["score"], reverse=True)
+    for r in results: 
+        logger.info("region=%s score=%s az=%s", r.get("region"), r.get("score"), r.get("availability_zone_id"))
     return results
 
 def choose_best_region(scores):
@@ -98,7 +100,7 @@ def launch_spot_instance():
     ami_id = get_latest_al2023_ami(region=best_region["region"])
 
     # Lambda 環境変数から設定取得
-    instance_type = "t3.micro"
+    instance_type = "m6i.large"
     network_map = json.loads(os.environ["NETWORK_MAP"])
     selected = network_map[best_region["region"]]
     vpc_id = selected["vpc_id"]
@@ -296,7 +298,7 @@ KEY=$(aws s3api list-objects-v2 \
 
 if [ -n "$KEY" ]; then
   echo "Found S3 object: $KEY. Proceeding with data import."
-  aws s3 cp "s3://${BUCKET}/${KEY}" - | gunzip -c | mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" "${DB_NAME}"
+  aws s3 cp "s3://${BUCKET}/${KEY}" - | gunzip -c | tee >(wc -c >&2) | mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" "${DB_NAME}"
 else
   echo "No valid S3 object found. Skipping data import."
 fi
@@ -431,7 +433,6 @@ systemctl start spot-interruption.service
 
 def lambda_handler(event, context):
     interruption_time = event["time"]
-    instance_id = event["detail"]["instance-id"]
 
     interruption_unix = int(
         datetime.fromisoformat(
@@ -439,26 +440,28 @@ def lambda_handler(event, context):
         ).timestamp()
     )
 
-    # CloudWatch Metrics へ送信
-    cloudwatch.put_metric_data(
-        Namespace="SpotLifecycle",
-        MetricData=[
-            {
-                "MetricName": "SpotInterruptionTime",
-                "Dimensions": [
-                    {"Name": "InstanceId", "Value": instance_id}
-                ],
-                "Timestamp": datetime.now(timezone.utc),
-                "Value": interruption_unix,
-                "Unit": "Seconds"
-            }
-        ]
-    )
 
     logger.info(json.dumps({
         "event": "spot_interruption_detected",
-        "instance_id": instance_id,
         "interruption_time": interruption_time,
         "interruption_unix": interruption_unix
     }))
+    # fis = boto3.client("fis")
+    # experiment_templates = [
+    #     {"region": "ap-northeast-1", "template_id": "EXT2ZaPZWL8ituj6"},
+    #     {"region": "ap-northeast-2", "template_id": "EXT2ogaeJwL6dGAC"},
+    #     {"region": "us-west-2", "template_id": "EXT3BeJR1aDmRfG4"},
+    #     {"region": "us-east-1", "template_id": "EXT85Gc7qrwuu5MuA"},
+    #     {"region": "eu-central-1", "template_id": "EXT4DHowXggtzc"},
+    # ]
+
+    # for experiment in experiment_templates:
+    #     try:
+    #         fis = boto3.client("fis", region_name=experiment["region"])
+    #         response = fis.start_experiment(
+    #             experimentTemplateId=experiment["template_id"]
+    #         )
+    #         logger.info(f"Started FIS experiment in {experiment['region']}: {response['experiment']['id']}")
+    #     except Exception as e:
+    #         logger.error(f"Failed to start FIS experiment in {experiment['region']}: {e}", exc_info=True)
     return launch_spot_instance()

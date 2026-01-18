@@ -29,9 +29,9 @@ resource "aws_lambda_permission" "allow_eventbridge_central" {
 
 resource "aws_cloudwatch_event_rule" "daily_boot_spot" {
   name        = "${var.project}-${var.env}-daily-boot-spot"
-  description = "Run boot_spot every day at 9:00 JST"
+  description = "Run boot_spot every 12 hours"
 
-  schedule_expression = "cron(0 0 * * ? *)"
+  schedule_expression = "cron(0 */12 * * ? *)"
 }
 
 resource "aws_cloudwatch_event_target" "daily_boot_spot_target" {
@@ -142,7 +142,8 @@ resource "aws_iam_role_policy" "lambda_policy" {
           "iam:PassRole",
           "s3:PutObject",
           "s3:PutObjectAcl",
-          "cloudwatch:PutMetricData"
+          "cloudwatch:PutMetricData",
+          "fis:StartExperiment"
         ]
         Resource = "*"
       },
@@ -284,5 +285,11 @@ data "aws_iam_policy_document" "sns_topic_policy" {
 
 resource "aws_cloudwatch_event_target" "sns" {
   rule = aws_cloudwatch_event_rule.daily_boot_spot.name
+  arn  = aws_sns_topic.topic.arn
+}
+
+resource "aws_cloudwatch_event_target" "sns_central" {
+  rule          = aws_cloudwatch_event_rule.central_rule.name
+  event_bus_name = aws_cloudwatch_event_bus.central.name
   arn  = aws_sns_topic.topic.arn
 }

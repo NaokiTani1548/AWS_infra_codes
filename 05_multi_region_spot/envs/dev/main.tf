@@ -26,6 +26,11 @@ provider "aws" {
 }
 
 provider "aws" {
+  alias  = "apse1"
+  region = "ap-southeast-1"
+}
+
+provider "aws" {
   alias  = "use1"
   region = "us-east-1"
 }
@@ -38,6 +43,11 @@ provider "aws" {
 provider "aws" {
   alias  = "euc1"
   region = "eu-central-1"
+}
+
+provider "aws" {
+  alias  = "euw1"
+  region = "eu-west-1"
 }
 
 # --------------------------------
@@ -72,18 +82,18 @@ module "network_tokyo" {
 }
 
 # ----------------------------
-# 韓国 (ap-northeast-2)
+# シンガポール (ap-southeast-1)
 # ----------------------------
-module "network_korea" {
+module "network_singapore" {
   source = "../../modules/network"
   providers = {
-    aws = aws.apne2
+    aws = aws.apse1
   }
   cidr_vpc     = "10.2.0.0/16"
   cidr_public1 = "10.2.1.0/24"
   cidr_public2 = "10.2.2.0/24"
-  az_public1   = "ap-northeast-2a"
-  az_public2   = "ap-northeast-2b"
+  az_public1   = "ap-southeast-1a"
+  az_public2   = "ap-southeast-1b"
   env          = var.env
   project      = var.project
 }
@@ -140,6 +150,23 @@ module "network_frankfurt" {
 }
 
 # ----------------------------
+# アイルランド (eu-west-1)
+# ----------------------------
+module "network_ireland" {
+  source = "../../modules/network"
+  providers = {
+    aws = aws.euw1
+  }
+  cidr_vpc     = "10.6.0.0/16"
+  cidr_public1 = "10.6.1.0/24"
+  cidr_public2 = "10.6.2.0/24"
+  az_public1   = "eu-west-1a"
+  az_public2   = "eu-west-1b"
+  env          = var.env
+  project      = var.project
+}
+
+# ----------------------------
 # security_group
 # ----------------------------
 module "security_tokyo" {
@@ -153,12 +180,12 @@ module "security_tokyo" {
 }
 
 
-module "security_korea" {
+module "security_singapore" {
   source = "../../modules/security"
   providers = {
-    aws = aws.apne2
+    aws = aws.apse1
   }
-  VPCID   = module.network_korea.VPCID
+  VPCID   = module.network_singapore.VPCID
   env     = var.env
   project = var.project
 }
@@ -193,6 +220,16 @@ module "security_frankfurt" {
   project = var.project
 }
 
+module "security_ireland" {
+  source = "../../modules/security"
+  providers = {
+    aws = aws.euw1
+  }
+  VPCID   = module.network_ireland.VPCID
+  env     = var.env
+  project = var.project
+}
+
 # ----------------------------
 # key
 # ----------------------------
@@ -202,8 +239,8 @@ resource "aws_key_pair" "tokyo" {
   public_key = file("../../key/spot-db-test.pub")
 }
 
-resource "aws_key_pair" "korea" {
-  provider   = aws.apne2
+resource "aws_key_pair" "singapore" {
+  provider   = aws.apse1
   key_name   = "multi-region-spot-dev-keypair"
   public_key = file("../../key/spot-db-test.pub")
 }
@@ -226,6 +263,11 @@ resource "aws_key_pair" "frankfurt" {
   public_key = file("../../key/spot-db-test.pub")
 }
 
+resource "aws_key_pair" "ireland" {
+  provider   = aws.euw1
+  key_name   = "multi-region-spot-dev-keypair"
+  public_key = file("../../key/spot-db-test.pub")
+}
 
 module "lambda_source_s3" {
   source          = "../../modules/s3_lambda_source"
@@ -246,9 +288,9 @@ locals {
       vpc_id     = module.network_tokyo.VPCID
       subnet_id  = module.network_tokyo.public1ID
     }
-    ap-northeast-2 = {
-      vpc_id     = module.network_korea.VPCID
-      subnet_id  = module.network_korea.public1ID
+    ap-southeast-1 = {
+      vpc_id     = module.network_singapore.VPCID
+      subnet_id  = module.network_singapore.public1ID
     }
     us-east-1 = {
       vpc_id     = module.network_virginia.VPCID
@@ -262,26 +304,32 @@ locals {
       vpc_id     = module.network_frankfurt.VPCID
       subnet_id  = module.network_frankfurt.public1ID
     }
+    eu-west-1 = {
+      vpc_id     = module.network_ireland.VPCID
+      subnet_id  = module.network_ireland.public1ID
+    }
   }
 }
 
 locals {
   sg_map = {
     ap-northeast-1 = module.security_tokyo.sg_id
-    ap-northeast-2 = module.security_korea.sg_id
+    ap-southeast-1 = module.security_singapore.sg_id
     us-east-1      = module.security_virginia.sg_id
     us-west-2      = module.security_oregon.sg_id
     eu-central-1   = module.security_frankfurt.sg_id
+    eu-west-1 = module.security_ireland.sg_id
   }
 }
 
 locals {
   key_map = {
     ap-northeast-1 = aws_key_pair.tokyo.key_name
-    ap-northeast-2 = aws_key_pair.korea.key_name
+    ap-southeast-1 = aws_key_pair.singapore.key_name
     us-east-1      = aws_key_pair.virginia.key_name
     us-west-2      = aws_key_pair.oregon.key_name
     eu-central-1   = aws_key_pair.frankfurt.key_name
+    eu-west-1 = aws_key_pair.ireland.key_name
   }
 }
 
@@ -313,10 +361,10 @@ module "event_bridge_tokyo" {
   project = var.project
 }
 
-module "event_bridge_korea" {
+module "event_bridge_singapore" {
   source = "../../modules/event_bridge_all_region"
   providers = {
-    aws = aws.apne2
+    aws = aws.apse1
   }
   eventbridge_local_role = module.event_bridge.eventbridge_local_role
   env = var.env
@@ -347,6 +395,16 @@ module "event_bridge_frankfurt" {
   source = "../../modules/event_bridge_all_region"
   providers = {
     aws = aws.euc1
+  }
+  eventbridge_local_role = module.event_bridge.eventbridge_local_role
+  env = var.env
+  project = var.project
+}
+
+module "event_bridge_ireland" {
+  source = "../../modules/event_bridge_all_region"
+  providers = {
+    aws = aws.euw1
   }
   eventbridge_local_role = module.event_bridge.eventbridge_local_role
   env = var.env
