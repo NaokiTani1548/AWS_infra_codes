@@ -15,19 +15,38 @@ SOURCE_AMI_ID = "ami-09cd9fdbf26acc6b4"
 
 cloudwatch = boto3.client("cloudwatch")
 
+# 中断率データを手動で設定(変更頻度が遅いため)・使わない場合はすべて1で統一
+base_score = {
+    "ap-northeast-1": 1,
+    "ap-southeast-1": 1,
+    "us-east-1": 1,
+    "us-west-2": 1,
+    "eu-central-1": 1,
+    "eu-west-1": 1,
+}
+
+
 def get_spot_scores():
-    """
-    SPS（Spot Placement Score）を取得し、score の高い順に並べた結果を返す
-    """
     instance_types = ["m6i.large"]
     target_capacity = 1
-    regions = ["ap-northeast-1","ap-southeast-1","us-west-2","us-east-1","eu-central-1","eu-west-1"]
+
+    REGION_AZ_MAP = {
+        "ap-northeast-1": "ap-northeast-1c",
+        "ap-southeast-1": "ap-southeast-1a",
+        "us-east-1": "us-east-1b",
+        "us-west-2": "us-west-2a",
+        "eu-central-1": "eu-central-1a",
+        "eu-west-1": "eu-west-1a",
+    }
+
+    regions = list(REGION_AZ_MAP.keys())
     region_for_call = "ap-northeast-1"
 
     ec2 = boto3.client("ec2", region_name=region_for_call)
     results = []
 
-    params = {
+    # --- Region 単位の SPS ---
+    params_region = {
         "InstanceTypes": instance_types,
         "TargetCapacity": target_capacity,
         "SingleAvailabilityZone": False,
@@ -35,32 +54,26 @@ def get_spot_scores():
         "MaxResults": 100
     }
 
-    next_token = None
-    while True:
-        try:
-            if next_token:
-                params["NextToken"] = next_token
-            resp = ec2.get_spot_placement_scores(**params)
+    resp = ec2.get_spot_placement_scores(**params_region)
+    for s in resp.get("SpotPlacementScores", []):
+        region = s.get("Region")
+        score = s.get("Score", 0)
+        availability = score + base_score.get(region, 0)
+        results.append({
+            "region": region,
+            "score": availability,
+            "availability_zone": None
+        })
 
-        except (ClientError, BotoCoreError) as e:
-            logger.error("get_spot_placement_scores failed: %s", e, exc_info=True)
-            raise
-
-        for s in resp.get("SpotPlacementScores", []):
-            results.append({
-                "region": s.get("Region"),
-                "score": s.get("Score"),
-                **({"availability_zone_id": s.get("AvailabilityZoneId")} if s.get("AvailabilityZoneId") else {})
-            })
-
-        next_token = resp.get("NextToken")
-        if not next_token:
-            break
-
+    # --- スコア順にソート ---
     results.sort(key=lambda x: x["score"], reverse=True)
-    for r in results: 
-        logger.info("region=%s score=%s az=%s", r.get("region"), r.get("score"), r.get("availability_zone_id"))
+
+    for r in results:
+        logger.info("region=%s score=%s az=%s",
+                    r["region"], r["score"], r["availability_zone"])
+
     return results
+
 
 def choose_best_region(scores):
     """
@@ -136,6 +149,7 @@ def launch_spot_instance():
             UserData="""#!/bin/bash
                 set -euxo pipefail
                 exec > >(tee /var/log/user-data-debug.log) 2>&1
+                START_A=$(date -Is)
 
                 sudo dnf update -y
                 sudo dnf install -y awscli gzip
@@ -161,6 +175,7 @@ def launch_spot_instance():
                 dnf install -y policycoreutils-python-utils
                 fi
 
+                INSTALL_DONE_B=$(date -Is)
                 ########################################
                 # MySQL 初期化（初回のみ）
                 ########################################
@@ -213,17 +228,6 @@ EOF
                 echo "===== MySQL is running ====="
                 systemctl status mysqld --no-pager
 
-                ########################################
-                # S3 から CSV を取得して MySQL にロード
-                # （S3 を常に正とする）
-                ########################################
-
-                S3_CSV_PATH="s3://dev-multi-region-spot-data-source/data_source/employee_data.csv"
-                CSV_LOCAL_PATH="/var/tmp/seed.csv"
-
-                echo "===== Fetch CSV from S3 ====="
-                aws s3 cp "$S3_CSV_PATH" "$CSV_LOCAL_PATH"
-
 ########################################
 # root パスワード固定（初回 or 未設定時）
 ########################################
@@ -252,12 +256,17 @@ EOF
 
   systemctl start mysqld
 fi
+MYSQL_RUN_DONE_C=$(date -Is)
 
 ########################################
 # S3 から CSV 取得
 ########################################
+S3_CSV_PATH="s3://dev-multi-region-spot-data-source/data_source/employee_data.csv"
+CSV_LOCAL_PATH="/var/tmp/seed.csv"
 echo "===== Fetch CSV from S3 ====="
+CSV_FETCH_START_TS=$(date +%s%3N)
 aws s3 cp "${S3_CSV_PATH}" "${CSV_LOCAL_PATH}"
+CSV_CP_DONE_D=$(date -Is)
 
 ########################################
 # DB / Table 作成 & 再ロード（S3が正）
@@ -285,6 +294,8 @@ LINES TERMINATED BY '\n'
 IGNORE 1 ROWS;
 EOF
 
+CSV_LOAD_DONE_E=$(date -Is)
+
 BUCKET="dev-multi-region-spot-data-source"
 PREFIX="mysql/"
 MYSQL_ROOT_PASSWORD="Pass123!"
@@ -303,12 +314,17 @@ else
   echo "No valid S3 object found. Skipping data import."
 fi
 
+DATA_CP_DONE_F=$(date -Is)
+
 ########################################
 # 完了
 ########################################
 echo "===== MySQL is ready ====="
 mysql -uroot -p"${MYSQL_ROOT_PASSWORD}" -e \
   "SELECT COUNT(*) AS rows_loaded FROM ${DB_NAME}.${TABLE_NAME};"
+MYSQL_READY_TS=$(date +%s%3N)
+DATA_LOAD_DONE_G=$(date -Is)
+DURATION_MS=$((MYSQL_READY_TS - CSV_FETCH_START_TS))
 
 LOG_GROUP_NAME="/aws/lambda/multi-region-spot-dev-boot-spot"
 LOG_STREAM_NAME="spot-instance-log-stream"
@@ -316,7 +332,7 @@ REGION="ap-northeast-1"
 
 INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
 TIMESTAMP=$(date +%s%3N)
-MESSAGE="userdata_completed instance_id=${INSTANCE_ID} time=$(date -Is)"
+MESSAGE="userdata_completed start=${START_A} install_done=${INSTALL_DONE_B} MySQL_run_done=${MYSQL_RUN_DONE_C} csv_cp_done=${CSV_CP_DONE_D} csv_load_done=${CSV_LOAD_DONE_E} data_cp_done=${DATA_CP_DONE_F} data_load_done=${DATA_LOAD_DONE_G} data_load_duration_ms=${DURATION_MS}"
 
 # Log stream 作成（存在してもOK）
 aws logs create-log-stream \
@@ -367,6 +383,7 @@ while true; do
   TOKEN=$(curl -s -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds:15")
   HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" -H "X-aws-ec2-metadata-token: $TOKEN" --connect-timeout 1 --max-time 2 http://169.254.169.254/latest/meta-data/spot/instance-action)
   if [[ "$HTTP_CODE" == "200" ]]; then
+    DETECT=$(date -Is) 
     logger -t spot-handler "Spot interruption detected"
     TS=$(date +%Y%m%d-%H%M%S)
     DUMP="/var/tmp/${DB_NAME}-${TS}.sql.gz"
@@ -375,7 +392,19 @@ while true; do
     mysqldump -uroot -p"${MYSQL_ROOT_PASSWORD}" "${DB_NAME}" | gzip > "${DUMP}"
     logger -t spot-handler "MySQL dump finished"
     logger -t spot-handler "Uploading to S3"
-    aws s3 cp "${DUMP}" "s3://${S3_BUCKET}/mysql/"
+    START_TS=$(date +%s)
+    logger -t spot-handler "Uploading to S3 start=${START_TS}"
+    if aws s3 cp "${DUMP}" "s3://${S3_BUCKET}/mysql/"; then
+      END_TS=$(date +%s)
+      END_IS=$(date -Is)
+      DURATION=$((END_TS - START_TS))
+      logger -t spot-handler "Uploading to S3 finished success end=${END_TS} duration_sec=${DURATION}"
+      logger -t spot-handler "TIME... start=${DETECT} end=${END_IS}"
+    else
+      END_TS=$(date +%s)
+      DURATION=$((END_TS - START_TS))
+      logger -t spot-handler "Uploading to S3 failed end=${END_TS} duration_sec=${DURATION}"
+    fi
     logger -t spot-handler "Upload finished"
     sleep 120
     exit 0
@@ -430,6 +459,26 @@ systemctl start spot-interruption.service
         "score": scores[0]["score"],
     }
 
+def launch_spot_instance_with_retry():
+    """
+    起動が成功するまで30秒刻みでリクエストを繰り返す
+    """
+    max_retries = 30  # 最大リトライ回数（例: 30回）
+    retry_delay = 30  # リトライ間隔（秒）
+    logger.info(f"Current time: {datetime.now(timezone.utc).isoformat()}")
+
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"Attempt {attempt + 1}/{max_retries}: Launching spot instance...")
+            return launch_spot_instance()  # スポットインスタンス起動を試行
+        except botocore.exceptions.ClientError as e:
+            if "InsufficientInstanceCapacity" in str(e) or "InvalidParameter" in str(e):
+                logger.warning(f"Retrying in {retry_delay} seconds due to error: {e}")
+                time.sleep(retry_delay)  # リトライ間隔を待機
+            else:
+                logger.error("Unexpected error occurred. Aborting retries.")
+                raise  # 予期しないエラーの場合は再スロー
+    raise Exception("Failed to launch spot instance after maximum retries")
 
 def lambda_handler(event, context):
     interruption_time = event["time"]
@@ -464,4 +513,4 @@ def lambda_handler(event, context):
     #         logger.info(f"Started FIS experiment in {experiment['region']}: {response['experiment']['id']}")
     #     except Exception as e:
     #         logger.error(f"Failed to start FIS experiment in {experiment['region']}: {e}", exc_info=True)
-    return launch_spot_instance()
+    return launch_spot_instance_with_retry()

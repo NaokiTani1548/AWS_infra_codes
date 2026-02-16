@@ -73,7 +73,7 @@ resource "aws_lambda_function" "boot_spot" {
   s3_key    = var.s3_key
   handler       = "boot_spot.lambda_handler"
   runtime       = "python3.9"
-  timeout       = 120
+  timeout       = 900
   layers = [ "arn:aws:lambda:ap-northeast-1:058898200941:layer:paramiko-layer:5" ]
 
   environment {
