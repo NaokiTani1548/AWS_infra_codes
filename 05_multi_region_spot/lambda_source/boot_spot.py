@@ -1,5 +1,5 @@
 import boto3
-from botocore.exceptions import ClientError, BotoCoreError
+from botocore.exceptions import ClientError
 import os
 import time
 import random
@@ -10,13 +10,15 @@ from datetime import datetime, timezone
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+INSTANCE_TYPE = "m6i.large"
+
 SOURCE_REGION = "ap-northeast-1"
 SOURCE_AMI_ID = "ami-09cd9fdbf26acc6b4"
 
 cloudwatch = boto3.client("cloudwatch")
 
 # 中断率データを手動で設定(変更頻度が遅いため)・使わない場合はすべて1で統一
-base_score = {
+BASE_SCORE = {
     "ap-northeast-1": 1,
     "ap-southeast-1": 1,
     "us-east-1": 1,
@@ -25,40 +27,32 @@ base_score = {
     "eu-west-1": 1,
 }
 
+REGION_AZ_MAP = {
+    "ap-northeast-1": "ap-northeast-1c",
+    "ap-southeast-1": "ap-southeast-1a",
+    "us-east-1": "us-east-1b",
+    "us-west-2": "us-west-2a",
+    "eu-central-1": "eu-central-1a",
+    "eu-west-1": "eu-west-1a",
+}
+REGIONS = list(REGION_AZ_MAP.keys())
+
 
 def get_spot_scores():
-    instance_types = ["m6i.large"]
-    target_capacity = 1
+    ec2 = boto3.client("ec2", region_name=SOURCE_REGION)
+    resp = ec2.get_spot_placement_scores(
+        InstanceTypes=[INSTANCE_TYPE],
+        TargetCapacity=1,
+        SingleAvailabilityZone=False,
+        RegionNames=REGIONS,
+        MaxResults=100,
+    )
 
-    REGION_AZ_MAP = {
-        "ap-northeast-1": "ap-northeast-1c",
-        "ap-southeast-1": "ap-southeast-1a",
-        "us-east-1": "us-east-1b",
-        "us-west-2": "us-west-2a",
-        "eu-central-1": "eu-central-1a",
-        "eu-west-1": "eu-west-1a",
-    }
-
-    regions = list(REGION_AZ_MAP.keys())
-    region_for_call = "ap-northeast-1"
-
-    ec2 = boto3.client("ec2", region_name=region_for_call)
     results = []
-
-    # --- Region 単位の SPS ---
-    params_region = {
-        "InstanceTypes": instance_types,
-        "TargetCapacity": target_capacity,
-        "SingleAvailabilityZone": False,
-        "RegionNames": regions,
-        "MaxResults": 100
-    }
-
-    resp = ec2.get_spot_placement_scores(**params_region)
     for s in resp.get("SpotPlacementScores", []):
         region = s.get("Region")
         score = s.get("Score", 0)
-        availability = score + base_score.get(region, 0)
+        availability = score + BASE_SCORE.get(region, 0)
         results.append({
             "region": region,
             "score": availability,
@@ -85,7 +79,7 @@ def choose_best_region(scores):
     top_regions = [s for s in scores if s["score"] == top_score]
 
     if len(top_regions) == 1:
-        return top_regions[0]  # １つだけ → そのまま採用
+        return top_regions[0]
 
     # 複数 → ランダム選択
     return random.choice(top_regions)
@@ -113,14 +107,14 @@ def launch_spot_instance():
     ami_id = get_latest_al2023_ami(region=best_region["region"])
 
     # Lambda 環境変数から設定取得
-    instance_type = "m6i.large"
     network_map = json.loads(os.environ["NETWORK_MAP"])
+    keypair_map = json.loads(os.environ["KEYNAME_MAP"])
+    sg_map = json.loads(os.environ["SECURITY_GROUP_MAP"])
+
     selected = network_map[best_region["region"]]
     vpc_id = selected["vpc_id"]
     subnet_id = selected["subnet_id"]
-    keypair_map = json.loads(os.environ["KEYNAME_MAP"])
     keypair_name = keypair_map[best_region["region"]]
-    sg_map = json.loads(os.environ["SECURITY_GROUP_MAP"])
     sg_id = sg_map[best_region["region"]].split(",")
     seed_s3_path = os.environ["S3_DATA_PATH"]
 
@@ -130,7 +124,7 @@ def launch_spot_instance():
     try:
         response = ec2.run_instances(
             ImageId=ami_id,
-            InstanceType=instance_type,
+            InstanceType=INSTANCE_TYPE,
             MinCount=1,
             MaxCount=1,
             InstanceMarketOptions={
@@ -147,42 +141,42 @@ def launch_spot_instance():
                 "Name": "ec2-s3-full-role"
             },
             UserData="""#!/bin/bash
-                set -euxo pipefail
-                exec > >(tee /var/log/user-data-debug.log) 2>&1
-                START_A=$(date -Is)
+set -euxo pipefail
+exec > >(tee /var/log/user-data-debug.log) 2>&1
+START_A=$(date -Is)
 
-                sudo dnf update -y
-                sudo dnf install -y awscli gzip
-                sudo dnf remove -y mariadb-*
+sudo dnf update -y
+sudo dnf install -y awscli gzip
+sudo dnf remove -y mariadb-*
 
-                sudo dnf install -y https://dev.mysql.com/get/mysql80-community-release-el9-1.noarch.rpm
-                wget https://repo.mysql.com/RPM-GPG-KEY-mysql-2023
-                sudo rpm --import RPM-GPG-KEY-mysql-2023
+sudo dnf install -y https://dev.mysql.com/get/mysql80-community-release-el9-1.noarch.rpm
+wget https://repo.mysql.com/RPM-GPG-KEY-mysql-2023
+sudo rpm --import RPM-GPG-KEY-mysql-2023
 
-                sudo dnf --enablerepo=mysql80-community install -y mysql-community-server mysql-community-devel
+sudo dnf --enablerepo=mysql80-community install -y mysql-community-server mysql-community-devel
 
-                sudo systemctl stop mysqld
+sudo systemctl stop mysqld
 
-                ########################################
-                # データディレクトリ確認（触らない）
-                ########################################
-                ls -ld /var/lib/mysql || true
+########################################
+# データディレクトリ確認（触らない）
+########################################
+ls -ld /var/lib/mysql || true
 
-                ########################################
-                # SELinux（AL2023 は基本 permissive だが安全側）
-                ########################################
-                if command -v getenforce >/dev/null && [ "$(getenforce)" != "Disabled" ]; then
-                dnf install -y policycoreutils-python-utils
-                fi
+########################################
+# SELinux（AL2023 は基本 permissive だが安全側）
+########################################
+if command -v getenforce >/dev/null && [ "$(getenforce)" != "Disabled" ]; then
+dnf install -y policycoreutils-python-utils
+fi
 
-                INSTALL_DONE_B=$(date -Is)
-                ########################################
-                # MySQL 初期化（初回のみ）
-                ########################################
-                if [ ! -d /var/lib/mysql/mysql ]; then
-                echo "Initializing MySQL data directory"
-                mysqld --initialize --user=mysql
-                fi
+INSTALL_DONE_B=$(date -Is)
+########################################
+# MySQL 初期化（初回のみ）
+########################################
+if [ ! -d /var/lib/mysql/mysql ]; then
+echo "Initializing MySQL data directory"
+mysqld --initialize --user=mysql
+fi
 
 ########################################
 # local_infile 有効化
@@ -196,37 +190,37 @@ secure_file_priv=""
 local_infile=1
 EOF
 
-                ########################################
-                # systemd に完全に任せて起動
-                ########################################
-                systemctl enable mysqld
-                systemctl restart mysqld
+########################################
+# systemd に完全に任せて起動
+########################################
+systemctl enable mysqld
+systemctl restart mysqld
 
-                ########################################
-                # 起動待ち
-                ########################################
-                for i in {1..30}; do
-                if systemctl is-active --quiet mysqld; then
-                    echo "MySQL started successfully"
-                    break
-                fi
-                sleep 1
-                done
+########################################
+# 起動待ち
+########################################
+for i in {1..30}; do
+if systemctl is-active --quiet mysqld; then
+    echo "MySQL started successfully"
+    break
+fi
+sleep 1
+done
 
-                ########################################
-                # 起動確認
-                ########################################
-                if ! systemctl is-active --quiet mysqld; then
-                echo "MySQL failed to start"
-                journalctl -u mysqld --no-pager -n 100
-                exit 1
-                fi
+########################################
+# 起動確認
+########################################
+if ! systemctl is-active --quiet mysqld; then
+echo "MySQL failed to start"
+journalctl -u mysqld --no-pager -n 100
+exit 1
+fi
 
-                ########################################
-                # 完了ログ
-                ########################################
-                echo "===== MySQL is running ====="
-                systemctl status mysqld --no-pager
+########################################
+# 完了ログ
+########################################
+echo "===== MySQL is running ====="
+systemctl status mysqld --no-pager
 
 ########################################
 # root パスワード固定（初回 or 未設定時）
@@ -367,6 +361,43 @@ else
 fi
 
 ########################################
+# EBS snapshot 共通スクリプト
+########################################
+
+cat <<'EOF' > /usr/local/bin/create-ebs-snapshot.sh
+#!/bin/bash
+set -euo pipefail
+
+INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+REGION=$(curl -s http://169.254.169.254/latest/dynamic/instance-identity/document \
+  | grep region | awk -F\" '{print $4}')
+
+VOLUME_ID=$(aws ec2 describe-instances \
+  --region "$REGION" \
+  --instance-ids "$INSTANCE_ID" \
+  --query "Reservations[0].Instances[0].BlockDeviceMappings[?DeviceName=='/dev/xvda'].Ebs.VolumeId" \
+  --output text)
+
+TS=$(date -Is)
+
+logger -t ebs-snapshot "Creating snapshot volume=${VOLUME_ID}"
+
+aws ec2 create-snapshot \
+  --region "$REGION" \
+  --volume-id "$VOLUME_ID" \
+  --description "spot-db-snapshot ${TS}" \
+  --tag-specifications "ResourceType=snapshot,Tags=[
+    {Key=InstanceId,Value=${INSTANCE_ID}},
+    {Key=Type,Value=periodic},
+    {Key=CreatedAt,Value=${TS}}
+  ]"
+
+logger -t ebs-snapshot "Snapshot request submitted"
+EOF
+
+chmod +x /usr/local/bin/create-ebs-snapshot.sh
+
+########################################
 # Spot 中断検知セットアップ
 ########################################
 
@@ -385,6 +416,7 @@ while true; do
   if [[ "$HTTP_CODE" == "200" ]]; then
     DETECT=$(date -Is) 
     logger -t spot-handler "Spot interruption detected"
+
     TS=$(date +%Y%m%d-%H%M%S)
     DUMP="/var/tmp/${DB_NAME}-${TS}.sql.gz"
 
@@ -406,6 +438,12 @@ while true; do
       logger -t spot-handler "Uploading to S3 failed end=${END_TS} duration_sec=${DURATION}"
     fi
     logger -t spot-handler "Upload finished"
+
+    # 最終 EBS snapshot
+    logger -t spot-handler "Final EBS snapshot start"
+    /usr/local/bin/create-ebs-snapshot.sh || true
+    logger -t spot-handler "Final EBS snapshot requested"
+
     sleep 120
     exit 0
   fi
@@ -436,6 +474,30 @@ systemctl daemon-reload
 systemctl enable spot-interruption.service
 systemctl start spot-interruption.service
 
+cat <<'EOF' > /etc/systemd/system/ebs-snapshot.service
+[Unit]
+Description=Hourly EBS Snapshot
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/create-ebs-snapshot.sh
+EOF
+
+cat <<'EOF' > /etc/systemd/system/ebs-snapshot.timer
+[Unit]
+Description=Run EBS snapshot every hour
+
+[Timer]
+OnBootSec=15min
+OnUnitActiveSec=1h
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now ebs-snapshot.timer
             """,
             TagSpecifications=[
                 {
@@ -470,14 +532,14 @@ def launch_spot_instance_with_retry():
     for attempt in range(max_retries):
         try:
             logger.info(f"Attempt {attempt + 1}/{max_retries}: Launching spot instance...")
-            return launch_spot_instance()  # スポットインスタンス起動を試行
-        except botocore.exceptions.ClientError as e:
+            return launch_spot_instance()
+        except ClientError as e:
             if "InsufficientInstanceCapacity" in str(e) or "InvalidParameter" in str(e):
                 logger.warning(f"Retrying in {retry_delay} seconds due to error: {e}")
-                time.sleep(retry_delay)  # リトライ間隔を待機
+                time.sleep(retry_delay)
             else:
                 logger.error("Unexpected error occurred. Aborting retries.")
-                raise  # 予期しないエラーの場合は再スロー
+                raise
     raise Exception("Failed to launch spot instance after maximum retries")
 
 def lambda_handler(event, context):
@@ -495,22 +557,4 @@ def lambda_handler(event, context):
         "interruption_time": interruption_time,
         "interruption_unix": interruption_unix
     }))
-    # fis = boto3.client("fis")
-    # experiment_templates = [
-    #     {"region": "ap-northeast-1", "template_id": "EXT2ZaPZWL8ituj6"},
-    #     {"region": "ap-northeast-2", "template_id": "EXT2ogaeJwL6dGAC"},
-    #     {"region": "us-west-2", "template_id": "EXT3BeJR1aDmRfG4"},
-    #     {"region": "us-east-1", "template_id": "EXT85Gc7qrwuu5MuA"},
-    #     {"region": "eu-central-1", "template_id": "EXT4DHowXggtzc"},
-    # ]
-
-    # for experiment in experiment_templates:
-    #     try:
-    #         fis = boto3.client("fis", region_name=experiment["region"])
-    #         response = fis.start_experiment(
-    #             experimentTemplateId=experiment["template_id"]
-    #         )
-    #         logger.info(f"Started FIS experiment in {experiment['region']}: {response['experiment']['id']}")
-    #     except Exception as e:
-    #         logger.error(f"Failed to start FIS experiment in {experiment['region']}: {e}", exc_info=True)
     return launch_spot_instance_with_retry()
