@@ -159,21 +159,21 @@ aws lambda publish-layer-version \
 
 ```bash
 {
-"version": "0",
-"id": "abcd1234-5678-90ab-cdef-EXAMPLE11111",
-"detail-type": "EC2 Spot Instance Interruption Warning",
-"source": "aws.ec2",
-"account": "XX",  # example value; replace with your AWS account ID
-"time": "2025-12-31T07:15:00Z",
-"region": "us-west-2",
-"resources": [
-"arn:aws:ec2:us-west-2:XX:instance/i-0abcd1234efgh5678"  # example ARN
-],
-"detail":
-{
-"instance-id": "i-0abcd1234efgh5678",
-"instance-action": "terminate"
-}
+  "version": "0",
+  "id": "abcd1234-5678-90ab-cdef-EXAMPLE11111",
+  "detail-type": "EC2 Spot Instance Interruption Warning",
+  "source": "aws.ec2",
+  "account": "XX",  # example value; replace with your AWS account ID
+  "time": "2025-12-31T07:15:00Z",
+  "region": "us-west-2",
+  "resources": [
+  "arn:aws:ec2:us-west-2:XX:instance/i-0abcd1234efgh5678"  # example ARN
+  ],
+  "detail":
+  {
+  "instance-id": "i-0abcd1234efgh5678",
+  "instance-action": "terminate"
+  }
 }
 ```
 
@@ -201,3 +201,13 @@ aws lambda publish-layer-version \
 
 - lambda関数内でSPSと中断率データを取得します。
 - 中断率データ取得の自動化実装が間に合っていないため、日次で手動設定する必要があります。SPSと比べて更新頻度は低いので、今回の実験では問題ないと判断しています。
+
+### 自動化の失敗箇所3
+
+- lambdaの実行上限時間が15分のため、もし15分以内にスポットインスタンスのリソースを取得できない（起動拒否され続ける）と、システムが停止しています。
+- このコードでは手動で再起動させるしかありませんが、SQSなどを用いてDLQに入れることで再実行できるようになると思います
+- 今回は実装していません
+
+### アーキテクチャのイメージ図に入っているが実装していない箇所
+
+- Route53(複数リージョンのデータベースを単一エンドポイントで受けるための機構 実験の趣旨に関係ないので実装していません)
