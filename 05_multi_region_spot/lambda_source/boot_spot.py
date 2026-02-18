@@ -52,15 +52,18 @@ def get_spot_scores():
     for s in resp.get("SpotPlacementScores", []):
         region = s.get("Region")
         score = s.get("Score", 0)
-        availability = score + BASE_SCORE.get(region, 0)
+        base = BASE_SCORE.get(region, 0)
+        availability = score + base
         results.append({
             "region": region,
             "score": availability,
+            "raw_score": score,
+            "base_score": base,
             "availability_zone": None
         })
 
-    # --- スコア順にソート ---
-    results.sort(key=lambda x: x["score"], reverse=True)
+    # --- スコア順にソート (availability first, then base_score) ---
+    results.sort(key=lambda x: (x["score"], x.get("base_score", 0)), reverse=True)
 
     for r in results:
         logger.info("region=%s score=%s az=%s",
@@ -71,18 +74,28 @@ def get_spot_scores():
 
 def choose_best_region(scores):
     """
-    最高スコアのリージョンが複数ある場合のみランダム選択
+    最高スコア順に並べ、トップが複数ある場合は
+    BASE_SCORE（base_scoreフィールド）が高いものを優先する。
+    それでも複数ある場合のみランダム選択する。
     """
     top_score = scores[0]["score"]
 
-    # 同率1位を抽出
+    # availability が同じリージョンを抽出
     top_regions = [s for s in scores if s["score"] == top_score]
 
     if len(top_regions) == 1:
         return top_regions[0]
 
-    # 複数 → ランダム選択
-    return random.choice(top_regions)
+    # base_score の高い順でソート
+    top_regions.sort(key=lambda x: x.get("base_score", 0), reverse=True)
+    best_base = top_regions[0].get("base_score", 0)
+    candidates = [s for s in top_regions if s.get("base_score", 0) == best_base]
+
+    if len(candidates) == 1:
+        return candidates[0]
+
+    # まだ複数 → ランダム選択
+    return random.choice(candidates)
 
 def get_latest_al2023_ami(region):
     ssm = boto3.client("ssm", region_name=region)

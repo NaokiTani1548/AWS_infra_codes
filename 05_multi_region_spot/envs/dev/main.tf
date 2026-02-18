@@ -231,7 +231,8 @@ module "security_ireland" {
 }
 
 # ----------------------------
-# key
+# key 
+# keyの場所は作成時の名前に変更してください
 # ----------------------------
 resource "aws_key_pair" "tokyo" {
   provider   = aws

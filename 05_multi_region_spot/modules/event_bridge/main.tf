@@ -64,7 +64,8 @@ resource "aws_cloudwatch_event_bus_policy" "allow_put_from_regions" {
 }
 
 # ---------------------------------------------
-# Lambda Function
+# Lambda Function　
+# layersは自分のものを記述
 # ---------------------------------------------
 resource "aws_lambda_function" "boot_spot" {
   function_name = "${var.project}-${var.env}-boot-spot"

@@ -1,29 +1,152 @@
-## lambda zip 作り方
+# 起動前準備
+
+### 利用ツール等
+
+- Terraform: バージョン1.4以上を推奨
+- AWS CLI : 実験においては2.26.5を利用
+- Docker: Lambdaレイヤー作成や依存関係のビルドに使用するケースがある
+- Python: Lambda関数でも同じバージョンを使用
+- AWSアカウント: 様々な権限が必要なので自分でポリシーを作れる権限があると好ましい(利用アカウントのリージョンはap-northeast-1を想定)
+
+### その他実行に必要なもの
+
+- ssh接続用のkey　(key以下にssh接続を行う用の鍵を生成してください )
+
+```bash
+cd key
+ssh-keygen -t rsa -b 2048 -f <key_name>
+# 暗号鍵は~/.ssh/以下にも設置
+# たしか権限云々で必要だったはず（理由忘れた）
+```
+
+- lambdaファイルのzip化
+- もし外部ライブラリを用いる場合はページ下部参照
+
+```bash
+cd lambda_source
+zip boot_spot.zip boot_spot.py
+```
+
+- MEMO.mdを参照し、コードを変更
+
+# 起動について
+
+### 起動方法
+
+```bash
+cd envs/dev
+# 最初のみ terraform init が必要
+terraform apply -auto-approve
+```
+
+### 起動したスポットインスタンスの確認・接続
+
+```bash
+# ssh接続
+ssh -i ~/.ssh/spot-db-test.pem ec2-user@<public-IP>
+
+# 接続後、MySQLが正常に自動で起動しているか確認
+sudo systemctl status mysqld
+
+# MySQLへの接続 (appdbのemployeeテーブルが自動生成される)
+sudo mysql -u root -p
+Pass> Pass123!
+use appdb;
+```
+
+# 中断実験
+
+- スポットインスタンスの中断通知を意図的に発生させるためには、AWS FISを利用する必要がある
+- envs/dev　配下のtemplete.jsonを利用する（中断させたいリージョンに合わせて書き換える必要あり）
+
+### 手順
+
+- 実験テンプレートの構築
+
+```bash
+aws fis create-experiment-template --region ap-northeast-1 --cli-input-json file://template.json
+```
+
+- 中断の実行
+
+```bash
+aws fis start-experiment --region ap-northeast-1　--experiment-template-id <experimentTemplate-id>
+```
+
+- 実行結果の確認
+
+```bash
+aws fis get-experiment --region ap-northeast-1 --id <experiment-id>
+```
+
+# その他
+
+### terraformコマンド関連
+
+- 変更箇所の確認
+
+```bash
+$ terraform plan (-var <KEY>=<VALUE>)(-var-file <VAR_FILE>)
+```
+
+- 起動したサービスの削除
+
+```bash
+terraform destroy (-auto-approve)
+```
+
+### ssh接続後
+
+```bash
+# スポットインスタンス立ち上げ時のログ
+sudo cat /var/log/cloud-init-output.log
+# 中断時動作が動作しているかの確認
+systemctl status spot-interruption.service
+# 中断時のログ（中断完了までの間のみ確認可能）
+journalctl -t spot-handler --since "5 minutes ago"
+```
+
+### MySQL接続後
+
+```bash
+sudo mysql -u root -p
+Pass123!　# パスワード
+use appdb;
+# データの表示
+select * from employees;
+# データ数の確認
+SELECT COUNT(*) FROM employees;
+
+# 単体データ挿入
+INSERT INTO employees (id, name, email) VALUES (3, "chao", "chao@example.com");
+# 全データをコピーして挿入（既存データが倍になる。データ数を増やしたいときに）
+INSERT INTO employees (id, name, email) SELECT id, name, email FROM employees;
+# 全データをコピーして挿入 -250000が上限
+INSERT INTO employees (id, name, email) SELECT id, name, email FROM employees LIMIT 250000;
+```
+
+### lambda zip 作り方（外部ライブラリを用いる場合）
 
 ```bash
 $ zip boot_spot.zip boot_spot.py
 
 # 外部ライブラリを使う場合
-# 依存関係
 docker run -it --rm amazonlinux:2023 bash
-# update
 dnf update -y
-# python3.9とpipなどをインストール
 dnf install -y python3 python3-pip gcc libffi-devel openssl-devel make zip
-# バージョン確認
 python3 --version  # 3.9.x のはず
 mkdir /layer
 cd /layer
+
+# 入れるものは用途に合わせて
 python3 -m pip install --user --upgrade pip setuptools wheel
-# ライブラリをレイヤー用にインストール
 pip3 install paramiko==3.2.0 pycrypto==2.6.1 cryptography==3.4.8 bcrypt==3.2.2 -t python/
-# zip化
 zip -r9 paramiko-layer.zip python/
 exit
 
+# 別のターミナルで実行
 docker ps
 docker cp <container_id>:/layer/paramiko-layer.zip .
-
 aws lambda publish-layer-version \
   --layer-name paramiko-layer \
   --description "paramiko layer" \
@@ -32,184 +155,49 @@ aws lambda publish-layer-version \
   --region ap-northeast-1
 ```
 
+### Lambdaから直接関数を実行する際のテストイベント
 
-## ssh接続
-ssh -i ~/.ssh/spot-db-test.pem ec2-user@<public-IP>
-
-### mysqlの起動、確認
-sudo systemctl start mysqld
-sudo systemctl status mysqld
-### 初期パスワード確認
-```
-$ sudo grep 'temporary password' /var/log/mysqld.log
-# MySQL接続
-$ sudo mysql -u root -p
-$ Pass123!
-$ use appdb;
-$ select * from employees;
-INSERT INTO employees (id, name, email) VALUES (3, "chao", "chao@example.com");
-INSERT INTO employees (id, name, email) SELECT id, name, email FROM employees;
-INSERT INTO employees (id, name, email) SELECT id, name, email FROM employees LIMIT 250000;
-SELECT COUNT(*) FROM employees;
-```
-
-## 中断
-1.  実験テンプレートの構築
-```
-$ aws fis create-experiment-template --region ap-northeast-2 --cli-input-json file://template.json
-```
-2. 実験の実行
-```
-$ aws fis start-experiment --experiment-template-id EXT2ZaPZWL8ituj6
-$ aws fis start-experiment --region ap-northeast-2 --experiment-template-id EXT2ogaeJwL6dGAC
-$ aws fis start-experiment --region us-west-2 --experiment-template-id EXT3BeJR1aDmRfG4
-$ aws fis start-experiment --region us-east-1 --experiment-template-id EXT85Gc7qrwuu5MuA
-$ aws fis start-experiment --region eu-central-1 --experiment-template-id EXT4DHowXggtzc
-$ aws fis start-experiment --region eu-west-1 --experiment-template-id EXTCZaT11H1zHhWqn
-$ aws fis start-experiment --region ap-southeast-1 --experiment-template-id EXTRBsFwy2iPsLC
-```
-
-3. 実行の確認
-```
-$ aws fis get-experiment --region ap-northeast-2 --id <experiment-id>
-```
-
-
-sudo cat /var/log/cloud-init-output.log
-
-systemctl status spot-interruption.service
-
-journalctl -t spot-handler --since "5 minutes ago"
-
+```bash
 {
-  "version": "0",
-  "id": "abcd1234-5678-90ab-cdef-EXAMPLE11111",
-  "detail-type": "EC2 Spot Instance Interruption Warning",
-  "source": "aws.ec2",
-  "account": "123456789012",
-  "time": "2025-12-31T07:15:00Z",
-  "region": "us-west-2",
-  "resources": [
-    "arn:aws:ec2:us-west-2:123456789012:instance/i-0abcd1234efgh5678"
-  ],
-  "detail": {
-    "instance-id": "i-0abcd1234efgh5678",
-    "instance-action": "terminate"
-  }
+"version": "0",
+"id": "abcd1234-5678-90ab-cdef-EXAMPLE11111",
+"detail-type": "EC2 Spot Instance Interruption Warning",
+"source": "aws.ec2",
+"account": "XX",  # example value; replace with your AWS account ID
+"time": "2025-12-31T07:15:00Z",
+"region": "us-west-2",
+"resources": [
+"arn:aws:ec2:us-west-2:XX:instance/i-0abcd1234efgh5678"  # example ARN
+],
+"detail":
+{
+"instance-id": "i-0abcd1234efgh5678",
+"instance-action": "terminate"
 }
+}
+```
 
-TZ=Asia/Tokyo date -d @176760699
+# 注意点
 
-INSERT INTO employees (id, name, email) VALUES
-(1, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(2, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(3, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(4, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(5, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(6, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(7, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(8, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(9, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(30, "chao_abcdef123456", "chao_abcdef123456@example.com");
+### リファクタ
 
-INSERT INTO employees (id, name, email) VALUES
-(1, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(2, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(3, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(4, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(5, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(6, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(7, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(8, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(9, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(10, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(11, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(12, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(13, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(14, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(15, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(16, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(17, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(18, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(19, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(20, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(21, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(22, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(23, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(24, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(25, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(26, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(27, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(28, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(29, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(30, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(31, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(32, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(33, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(34, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(35, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(36, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(37, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(38, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(39, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(40, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(41, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(42, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(43, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(44, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(45, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(46, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(47, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(48, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(49, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(50, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(51, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(52, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(53, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(54, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(55, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(56, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(57, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(58, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(59, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(60, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(61, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(62, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(63, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(64, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(65, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(66, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(67, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(68, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(69, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(70, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(71, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(72, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(73, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(74, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(75, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(76, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(77, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(78, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(79, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(80, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(81, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(82, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(83, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(84, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(85, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(86, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(87, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(88, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(89, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(90, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(91, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(92, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(93, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(94, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(95, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(96, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(97, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(98, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(99, "chao_abcdef123456", "chao_abcdef123456@example.com"),
-(100, "chao_abcdef123456", "chao_abcdef123456@example.com");
+- 実験後にハードコーディングを解消するために、一部コードを変更しています。差分はとても多いわけではないですが、正常に動かない箇所がある可能性があります。
+- 大きな修正が必要になることはないと思いますが十分に気をつけてください
+
+### ハードコーディング
+
+- 自分の実験のために作ったので、ハードコーディングがひどいです。(少し手直しはしました)
+- README.md、MEMO.md、ARD.mdを残していますが、他の環境で再構築できるかわかりません。抜けているところがある可能性があります。
+- 参考程度の位置づけで見ていただけたらと思います。
+
+### 自動化の失敗箇所1
+
+- 12時間に1度、意図的にスポットインスタンスの再配置(lambdaの再実行)を行う構成になっています。（意図はARD.mdに残しています）
+- この時、古いスポットインスタンスはデータを退避させ、中断すべきですが、この部分の自動化実装が間に合っていません。
+- 中断時のデータ退避は「スポットインスタンスの中断イベント」でのみ発火します。一方で、lambda関数内でAWS FISで中断イベントを使うと、EventBridgeがこれを検知し、lambda関数を再実行してしまいます。
+- 12時間に一度の再配置を自動化するためには、データ退避のトリガーをいじったり、中断方法を考え直す必要があります。
+
+### 自動化の失敗箇所2
+
+- lambda関数内でSPSと中断率データを取得します。
+- 中断率データ取得の自動化実装が間に合っていないため、日次で手動設定する必要があります。SPSと比べて更新頻度は低いので、今回の実験では問題ないと判断しています。

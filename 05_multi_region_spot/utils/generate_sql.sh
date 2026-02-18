@@ -1,6 +1,6 @@
 #!/bin/bash
 
-N=50000   # ← ここを 100000 / 500000 に変える
+N=50000
 
 OUTPUT="employees_${N}.sql"
 
